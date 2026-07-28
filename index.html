@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Balance Sheet — Personal Capital Drawing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0C1D33;
+    --bg-panel:#102844;
+    --bg-panel-2:#0E2338;
+    --grid:rgba(178,208,255,0.055);
+    --grid-strong:rgba(178,208,255,0.12);
+    --ink:#E9F2FB;
+    --ink-dim:#8FADC9;
+    --ink-faint:#54728F;
+    --accent:#F2A65A;
+    --accent-soft:rgba(242,166,90,0.16);
+    --gain:#7FD9AE;
+    --loss:#F0788A;
+    --hair:#24466B;
+    --hair-bright:#3D6699;
+    --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    --sans:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--bg);
+    background-image:
+      repeating-linear-gradient(0deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 28px),
+      repeating-linear-gradient(90deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 28px);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.45;
+    min-height:100vh;
+    padding:20px 16px 64px;
+  }
+  a{color:var(--accent);}
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  /* ---------- title block ---------- */
+  .titleblock{
+    border:1px solid var(--hair-bright);
+    background:var(--bg-panel);
+    display:flex;
+    flex-wrap:wrap;
+    align-items:stretch;
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    margin-bottom:22px;
+  }
+  .titleblock .tb-main{
+    flex:1 1 260px;
+    padding:14px 16px;
+    border-right:1px solid var(--hair);
+  }
+  .titleblock .tb-main .tb-title{
+    font-family:var(--sans);
+    font-size:19px;
+    font-weight:700;
+    color:var(--ink);
+    text-transform:none;
+    letter-spacing:0;
+    display:block;
+    margin-bottom:2px;
+  }
+  .titleblock .tb-main .tb-sub{color:var(--ink-faint);}
+  .tb-field{
+    flex:1 1 110px;
+    padding:14px 16px;
+    border-right:1px solid var(--hair);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:4px;
+    min-width:100px;
+  }
+  .tb-field:last-child{border-right:none;}
+  .tb-field .k{color:var(--ink-faint);font-size:10px;}
+  .tb-field .v{color:var(--ink);font-size:13px;}
+  .tb-field .v.status-live{color:var(--gain);}
+  .tb-field .v.status-stale{color:var(--loss);}
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:36px 8px 28px;
+    text-align:center;
+    border-bottom:1px dashed var(--hair-bright);
+    margin-bottom:30px;
+  }
+  .hero .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:10px;
+  }
+  .hero .figure{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:clamp(42px,9vw,78px);
+    letter-spacing:-.01em;
+    color:var(--ink);
+  }
+  .hero .figure .cents{font-size:.5em;color:var(--ink-dim);}
+  .hero .delta{
+    font-family:var(--mono);
+    font-size:13px;
+    margin-top:6px;
+    color:var(--ink-dim);
+  }
+  .hero .delta .pos{color:var(--gain);}
+  .hero .delta .neg{color:var(--loss);}
+
+  .hero-bar{max-width:640px;margin:26px auto 6px;}
+  .hero-bar .bar{
+    display:flex;
+    height:22px;
+    border:1px solid var(--hair-bright);
+    overflow:hidden;
+  }
+  .hero-bar .seg-cash{background:linear-gradient(180deg,#3D6699,#2C4E70);}
+  .hero-bar .seg-okx{background:linear-gradient(180deg,var(--accent),#C77F3A);}
+  .hero-dims{width:100%;height:46px;display:block;font-family:var(--mono);}
+  .hero-dims text{fill:var(--ink-dim);font-size:11px;}
+  .hero-dims .val{fill:var(--ink);font-weight:600;}
+  .hero-dims line{stroke:var(--hair-bright);stroke-width:1;}
+
+  /* ---------- sheet sections ---------- */
+  .sheet{margin-bottom:34px;}
+  .sheet-head{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    border-bottom:1px solid var(--hair-bright);
+    padding-bottom:8px;
+    margin-bottom:16px;
+  }
+  .sheet-head .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--accent);
+    letter-spacing:.08em;
+    border:1px solid var(--hair-bright);
+    padding:2px 6px;
+    white-space:nowrap;
+  }
+  .sheet-head h2{
+    font-size:16px;
+    margin:0;
+    font-weight:600;
+    color:var(--ink);
+    letter-spacing:.01em;
+  }
+  .sheet-head .note{
+    margin-left:auto;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--ink-faint);
+    text-align:right;
+  }
+
+  /* ---------- foundation table ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  .acct-table th, .acct-table td{
+    padding:8px 10px;
+    text-align:right;
+    border-bottom:1px solid var(--hair);
+    font-family:var(--mono);
+    white-space:nowrap;
+  }
+  .acct-table th{
+    color:var(--ink-faint);
+    font-weight:500;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .acct-table td:first-child, .acct-table th:first-child{text-align:left;font-family:var(--sans);}
+  .acct-table tr.subtotal td{
+    color:var(--ink);
+    font-weight:700;
+    border-top:1px solid var(--hair-bright);
+    border-bottom:none;
+  }
+  .acct-table tr:hover td{background:rgba(180,208,255,0.03);}
+
+  /* ---------- superstructure cards ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:16px;}
+  .card{
+    border:1px solid var(--hair-bright);
+    background:var(--bg-panel);
+    padding:14px 16px;
+    position:relative;
+  }
+  .card.ghost{opacity:.45;border-style:dashed;}
+  .card .asset-name{font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.02em;}
+  .card .alloc{
+    font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+    position:absolute;top:14px;right:16px;
+  }
+  .card .mv{font-family:var(--mono);font-size:24px;font-weight:700;margin:10px 0 2px;}
+  .card .pl{font-family:var(--mono);font-size:12px;}
+  .card .pl.pos{color:var(--gain);}
+  .card .pl.neg{color:var(--loss);}
+  .card .meta{margin-top:10px;padding-top:10px;border-top:1px dashed var(--hair);font-family:var(--mono);font-size:11px;color:var(--ink-dim);display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;}
+  .card .meta span.k{color:var(--ink-faint);}
+  .card .zone-badge{
+    display:inline-block;margin-top:10px;padding:3px 8px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+    border:1px solid var(--accent);color:var(--accent);
+  }
+
+  .pace-strip{
+    display:flex;gap:24px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:12px;color:var(--ink-dim);
+    border:1px solid var(--hair);padding:10px 14px;background:var(--bg-panel-2);
+  }
+  .pace-strip b{color:var(--ink);}
+
+  /* ---------- charts ---------- */
+  .chart-box{border:1px solid var(--hair-bright);background:var(--bg-panel);padding:14px;margin-bottom:14px;}
+  .chart-box .chart-title{font-family:var(--mono);font-size:12px;color:var(--ink-dim);margin-bottom:8px;display:flex;justify-content:space-between;}
+  .chart-box canvas{width:100%;height:220px;display:block;cursor:crosshair;}
+  .mini-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .mini-charts canvas{height:130px;}
+  @media (max-width:600px){.mini-charts{grid-template-columns:1fr;}}
+  .legend{display:flex;gap:14px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);}
+  .legend .swatch{display:inline-block;width:10px;height:2px;margin-right:5px;vertical-align:middle;}
+
+  .chart-tooltip{
+    position:fixed;z-index:50;pointer-events:none;
+    background:var(--bg-panel-2);border:1px solid var(--hair-bright);
+    padding:8px 10px;font-family:var(--mono);font-size:11px;color:var(--ink);
+    box-shadow:0 4px 14px rgba(0,0,0,0.4);min-width:140px;
+  }
+  .chart-tooltip .tt-date{color:var(--ink-faint);margin-bottom:5px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
+  .chart-tooltip .tt-row{display:flex;align-items:center;gap:6px;margin-top:2px;}
+  .chart-tooltip .tt-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none;}
+  .chart-tooltip .tt-pl{margin-top:5px;padding-top:5px;border-top:1px dashed var(--hair);}
+
+  /* ---------- log table ---------- */
+  .log-controls{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+  .log-controls input, .log-controls select{
+    background:var(--bg-panel);border:1px solid var(--hair-bright);color:var(--ink);
+    font-family:var(--mono);font-size:12px;padding:6px 8px;
+  }
+  .log-wrap{overflow-x:auto;border:1px solid var(--hair-bright);}
+  .log-table{font-size:12px;min-width:820px;}
+  .log-table th, .log-table td{padding:6px 9px;font-family:var(--mono);border-bottom:1px solid var(--hair);white-space:nowrap;}
+  .log-table th{color:var(--ink-faint);text-transform:uppercase;font-size:10px;font-weight:500;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg-panel);}
+  .log-table td.asset-BTC{color:var(--accent);}
+  .log-table td.asset-XAUT{color:#D8C27A;}
+  .log-table tr:hover td{background:rgba(180,208,255,0.03);}
+
+  /* ---------- footer / states ---------- */
+  .footer-note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);text-align:center;margin-top:36px;}
+  .footer-note button{
+    font-family:var(--mono);font-size:11px;background:transparent;border:1px solid var(--hair-bright);
+    color:var(--ink-dim);padding:5px 12px;cursor:pointer;margin-left:10px;
+  }
+  .footer-note button:hover{color:var(--ink);border-color:var(--accent);}
+
+  .state-banner{
+    font-family:var(--mono);font-size:12px;padding:12px 14px;border:1px solid var(--hair-bright);
+    background:var(--bg-panel);color:var(--ink-dim);margin-bottom:18px;
+  }
+  .state-banner.error{border-color:var(--loss);color:var(--loss);}
+  .state-banner.error a{color:var(--loss);text-decoration:underline;}
+  .hidden{display:none !important;}
+
+  .pos{color:var(--gain);}
+  .neg{color:var(--loss);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="titleblock">
+    <div class="tb-main">
+      <span class="tb-title">Personal Balance Sheet</span>
+      <span class="tb-sub">DCA + savings — live drawing</span>
+    </div>
+    <div class="tb-field"><span class="k">Date</span><span class="v" id="tb-date">—</span></div>
+    <div class="tb-field"><span class="k">Rev</span><span class="v" id="tb-rev">—</span></div>
+    <div class="tb-field"><span class="k">Scale</span><span class="v">N.T.S.</span></div>
+    <div class="tb-field"><span class="k">Status</span><span class="v" id="tb-status">loading…</span></div>
+  </div>
+
+  <div id="state-loading" class="state-banner">Pulling latest figures from the sheet…</div>
+  <div id="state-error" class="state-banner error hidden"></div>
+
+  <div id="content" class="hidden">
+
+    <div class="hero">
+      <div class="eyebrow">Total Capacity — USD</div>
+      <div class="figure" id="hero-total">$0<span class="cents">.00</span></div>
+      <div class="delta" id="hero-delta"></div>
+      <div class="hero-bar">
+        <div class="bar">
+          <div class="seg-cash" id="seg-cash" style="width:50%"></div>
+          <div class="seg-okx" id="seg-okx" style="width:50%"></div>
+        </div>
+        <svg class="hero-dims" id="hero-dims" viewBox="0 0 640 46" preserveAspectRatio="none"></svg>
+      </div>
+    </div>
+
+    <div class="sheet" id="sheet-foundation">
+      <div class="sheet-head">
+        <span class="tag">SHT. 01</span>
+        <h2>Foundation — Cash &amp; Bank</h2>
+        <span class="note" id="fx-note"></span>
+      </div>
+      <table class="acct-table">
+        <thead><tr><th>Account</th><th>Currency</th><th>Balance (native)</th><th>Balance (USD)</th></tr></thead>
+        <tbody id="acct-rows"></tbody>
+      </table>
+    </div>
+
+    <div class="sheet" id="sheet-superstructure">
+      <div class="sheet-head">
+        <span class="tag">SHT. 02</span>
+        <h2>Superstructure — DCA Positions</h2>
+      </div>
+      <div class="cards" id="asset-cards"></div>
+      <div class="pace-strip" id="pace-strip"></div>
+    </div>
+
+    <div class="sheet" id="sheet-history">
+      <div class="sheet-head">
+        <span class="tag">SHT. 03</span>
+        <h2>Load History — Equity Curve</h2>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">
+          <span>Total invested vs. portfolio value</span>
+          <span class="legend">
+            <span><span class="swatch" style="background:var(--ink-dim);border-top:1px dashed var(--ink-dim);height:0;"></span>Invested</span>
+            <span><span class="swatch" style="background:var(--accent);"></span>Value</span>
+          </span>
+        </div>
+        <canvas id="chart-total"></canvas>
+      </div>
+      <div class="mini-charts">
+        <div class="chart-box">
+          <div class="chart-title"><span>BTC — avg cost vs. market</span></div>
+          <canvas id="chart-btc"></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title"><span>XAUT — avg cost vs. market</span></div>
+          <canvas id="chart-xaut"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet" id="sheet-log">
+      <div class="sheet-head">
+        <span class="tag">SHT. 04</span>
+        <h2>Site Log — Weekly Trades</h2>
+      </div>
+      <div class="log-controls">
+        <select id="log-filter">
+          <option value="">All assets</option>
+          <option value="BTC">BTC</option>
+          <option value="XAUT">XAUT</option>
+        </select>
+      </div>
+      <div class="log-wrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th data-key="week">Wk</th>
+              <th data-key="date">Date</th>
+              <th data-key="asset">Asset</th>
+              <th data-key="price">Price</th>
+              <th data-key="amount">Amount</th>
+              <th data-key="avgCost">Avg Cost</th>
+              <th data-key="marketValue">Mkt Value</th>
+              <th data-key="unrealizedPL">Unreal. P&amp;L</th>
+              <th data-key="risk">Risk</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="log-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    <span id="last-updated">—</span>
+    <button id="refresh-btn">Refresh</button>
+  </div>
+
+  <div class="chart-tooltip hidden" id="chart-tooltip"></div>
+
+</div>
+
+<script>
+/* =========================================================================
+   CONFIG
+   ========================================================================= */
+const SHEET_ID = '1_nQhvOes8i8WI8hUWa-awBDD60_ZB1x2cl7AdiUvTs4';
+const TABS = {
+  savings: 'Savings Dashboard',
+  log: 'DCA Log',
+  rules: 'DCA Rules',
+};
+
+/* =========================================================================
+   GVIZ FETCH (JSONP — works for sheets shared "Anyone with the link: Viewer")
+   ========================================================================= */
+let jsonpSeq = 0;
+function fetchSheetJSONP(sheetName, timeoutMs = 15000, range = null) {
+  return new Promise((resolve, reject) => {
+    const cbName = `__gviz_cb_${Date.now()}_${jsonpSeq++}`;
+    const script = document.createElement('script');
+    let settled = false;
+    const timer = setTimeout(() => finish(false, new Error(`Timed out loading "${sheetName}"`)), timeoutMs);
+
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      script.remove();
+    }
+    function finish(ok, payload) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      ok ? resolve(payload) : reject(payload);
+    }
+
+    window[cbName] = (json) => {
+      // json.status can be 'error' even with an HTTP 200 — surface it instead of
+      // silently returning an empty/garbage table.
+      if (json && json.status === 'error') {
+        const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'gviz returned an error';
+        finish(false, new Error(`"${sheetName}": ${msg}`));
+        return;
+      }
+      if (json && json.table) finish(true, json.table);
+      else finish(false, new Error(`Malformed response for "${sheetName}"`));
+    };
+    script.onerror = () => finish(false, new Error(
+      `Could not load "${sheetName}". The sheet likely isn't shared as "Anyone with the link — Viewer".`
+    ));
+    // Bounding huge/mostly-blank formula ranges (1000-row tabs) with an explicit
+    // range avoids gviz's column-type auto-detection getting confused over
+    // thousands of blank cells below the real data.
+    let url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+    if (range) url += `&range=${encodeURIComponent(range)}`;
+    script.src = url;
+    document.head.appendChild(script);
+  });
+}
+
+/* =========================================================================
+   PARSERS (label-based — tolerant of inserted/reordered rows)
+   ========================================================================= */
+function textOf(row, idx) {
+  const c = row && row.c && row.c[idx];
+  if (!c || c.v === null || c.v === undefined) return '';
+  return String(c.v).trim();
+}
+function numOf(row, idx) {
+  const c = row && row.c && row.c[idx];
+  if (!c || c.v === null || c.v === undefined || c.v === '') return null;
+  // gviz normally gives raw numbers in .v, but has been observed returning the
+  // comma-formatted display string instead for some columns — parseFloat stops
+  // at the first comma ("65,257.11" -> 65), silently truncating. Strip
+  // thousands separators first so both cases parse correctly.
+  const n = typeof c.v === 'number' ? c.v : parseFloat(String(c.v).replace(/,/g, ''));
+  return Number.isNaN(n) ? null : n;
+}
+function parseGvizDate(v) {
+  if (v == null) return null;
+  if (typeof v === 'string' && v.startsWith('Date(')) {
+    const parts = v.slice(5, -1).split(',').map(Number);
+    return new Date(parts[0], parts[1], parts[2], parts[3] || 0, parts[4] || 0, parts[5] || 0);
+  }
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function findRowIndex(rows, matcher, colIdx = 0) {
+  return rows.findIndex((r) => matcher(textOf(r, colIdx)));
+}
+
+function parseSavingsDashboard(rows) {
+  const fxIdx = findRowIndex(rows, (t) => /khr\s*\/?\s*usd rate/i.test(t));
+  const fxRate = fxIdx >= 0 ? numOf(rows[fxIdx], 1) : null;
+
+  const acctHeaderIdx = findRowIndex(rows, (t) => t === 'Account');
+  const accounts = [];
+  if (acctHeaderIdx >= 0) {
+    let i = acctHeaderIdx + 1;
+    while (i < rows.length) {
+      const label = textOf(rows[i], 0);
+      if (!label || /^subtotal/i.test(label)) break;
+      accounts.push({
+        account: label, currency: textOf(rows[i], 1),
+        balanceNative: numOf(rows[i], 2), balanceUSD: numOf(rows[i], 3),
+      });
+      i++;
+    }
+  }
+  const cashSubtotalIdx = findRowIndex(rows, (t) => /^subtotal/i.test(t) && /cash/i.test(t));
+  const cashSubtotal = cashSubtotalIdx >= 0 ? numOf(rows[cashSubtotalIdx], 3)
+    : accounts.reduce((s, a) => s + (a.balanceUSD || 0), 0);
+
+  let assetHeaderIdx = -1;
+  for (let r = (acctHeaderIdx >= 0 ? acctHeaderIdx : 0) + 1; r < rows.length; r++) {
+    if (textOf(rows[r], 0) === 'Asset') { assetHeaderIdx = r; break; }
+  }
+  const okx = {};
+  if (assetHeaderIdx >= 0) {
+    let j = assetHeaderIdx + 1;
+    while (j < rows.length) {
+      const label = textOf(rows[j], 0);
+      if (!label || /^subtotal/i.test(label)) break;
+      okx[label] = numOf(rows[j], 3);
+      j++;
+    }
+  }
+  const okxSubtotalIdx = findRowIndex(rows, (t) => /^subtotal/i.test(t) && /okx/i.test(t));
+  const okxSubtotal = okxSubtotalIdx >= 0 ? numOf(rows[okxSubtotalIdx], 3)
+    : Object.values(okx).reduce((s, v) => s + (v || 0), 0);
+
+  const totalIdx = findRowIndex(rows, (t) => /total net savings/i.test(t));
+  const totalNetSavings = totalIdx >= 0 ? numOf(rows[totalIdx], 3) : cashSubtotal + okxSubtotal;
+
+  return { fxRate, accounts, cashSubtotal, okx, okxSubtotal, totalNetSavings };
+}
+
+// Summary and Chart Data used to be read from their own tabs, but both are built
+// with LAMBDA/MAP/HSTACK dynamic-array formulas, which Google's gviz endpoint has
+// documented trouble serving reliably (independent of range bounds). Every number
+// those tabs showed is fully derivable from DCA Log, which reads fine — so derive
+// it client-side instead and drop the two flaky tabs entirely.
+function computeSummaryFromLog(trades) {
+  const byAsset = {};
+  trades.forEach((t) => { (byAsset[t.asset] = byAsset[t.asset] || []).push(t); });
+  const assets = [];
+  Object.keys(byAsset).forEach((asset) => {
+    const rows = byAsset[asset].slice().sort((a, b) => (a.date && b.date ? a.date - b.date : 0));
+    const latest = rows[rows.length - 1];
+    const invested = rows.reduce((s, r) => s + (r.type && /sell/i.test(r.type) ? 0 : (r.amount || 0)), 0);
+    const unrealizedPL = latest.unrealizedPL;
+    assets.push({
+      asset, invested, units: latest.totalUnits, avgCost: latest.avgCost,
+      currentPrice: latest.weeklyPrice, marketValue: latest.marketValue, unrealizedPL,
+      returnPct: invested ? unrealizedPL / invested : null, realizedPL: latest.realizedPL,
+      allocation: null,
+    });
+  });
+  const totalMV = assets.reduce((s, a) => s + (a.marketValue || 0), 0);
+  assets.forEach((a) => { a.allocation = totalMV ? a.marketValue / totalMV : null; });
+
+  const totalInvested = assets.reduce((s, a) => s + (a.invested || 0), 0);
+  const totalUnrealized = assets.reduce((s, a) => s + (a.unrealizedPL || 0), 0);
+  const total = assets.length ? {
+    invested: totalInvested, marketValue: totalMV, unrealizedPL: totalUnrealized,
+    returnPct: totalInvested ? totalUnrealized / totalInvested : null,
+  } : null;
+
+  const weeks = new Set(trades.map((t) => t.week));
+  const dcaPace = weeks.size ? { weeksActive: weeks.size, avgPerWeek: totalInvested / weeks.size } : null;
+
+  return { assets, total, dcaPace };
+}
+
+function computeChartDataFromLog(trades) {
+  const sorted = trades.slice().sort((a, b) => (a.date && b.date ? a.date - b.date : 0));
+  const byAsset = {};
+  sorted.forEach((t) => { (byAsset[t.asset] = byAsset[t.asset] || []).push(t); });
+
+  function seriesFor(asset) {
+    return (byAsset[asset] || []).map((t) => ({ date: t.date, avgCost: t.avgCost, weeklyPrice: t.weeklyPrice }));
+  }
+
+  const weekOrder = [];
+  sorted.forEach((t) => { if (!weekOrder.includes(t.week)) weekOrder.push(t.week); });
+  const idx = (w) => weekOrder.indexOf(w);
+
+  const latestByAssetSoFar = {};
+  const totalSeries = weekOrder.map((week) => {
+    const rowsThisWeek = sorted.filter((t) => t.week === week);
+    rowsThisWeek.forEach((t) => { latestByAssetSoFar[t.asset] = t; });
+    let value = 0;
+    Object.values(latestByAssetSoFar).forEach((t) => { value += t.marketValue || 0; });
+    const invested = sorted
+      .filter((t) => idx(t.week) <= idx(week))
+      .reduce((s, t) => s + (t.type && /sell/i.test(t.type) ? 0 : (t.amount || 0)), 0);
+    const date = rowsThisWeek[0] ? rowsThisWeek[0].date : null;
+    return { date, invested, value, pl: value - invested };
+  });
+
+  return { btcSeries: seriesFor('BTC'), xautSeries: seriesFor('XAUT'), totalSeries };
+}
+
+function parseDCALog(rows) {
+  // NOTE: gviz infers a type per column from its data. Column B is dated,
+  // so the literal header text "Date" that sits in that column gets
+  // returned as null (can't coerce "Date" the string into a date value) —
+  // never match on that column's text. Column A ("Week") stays string-typed
+  // throughout, so it's the only reliable anchor for the header row.
+  let start = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (textOf(rows[i], 0) === 'Week') { start = i; break; }
+  }
+  const trades = [];
+  if (start >= 0) {
+    for (let i = start + 1; i < rows.length; i++) {
+      const week = textOf(rows[i], 0);
+      if (!/^W\d+/i.test(week)) break;
+      trades.push({
+        week, date: parseGvizDate(rows[i].c && rows[i].c[1] ? rows[i].c[1].v : null),
+        asset: textOf(rows[i], 2), type: textOf(rows[i], 3),
+        price: numOf(rows[i], 4), amount: numOf(rows[i], 5), units: numOf(rows[i], 6),
+        totalUnits: numOf(rows[i], 7), avgCost: numOf(rows[i], 8), weeklyPrice: numOf(rows[i], 9),
+        marketValue: numOf(rows[i], 10), unrealizedPL: numOf(rows[i], 11), realizedPL: numOf(rows[i], 12),
+        risk: numOf(rows[i], 13), topUp: numOf(rows[i], 14), usdtBalance: numOf(rows[i], 15),
+        notes: textOf(rows[i], 16),
+      });
+    }
+  }
+  return trades;
+}
+
+function parseRuleBlock(rows, startMatcher) {
+  const startIdx = rows.findIndex((r) => startMatcher(textOf(r, 0)));
+  if (startIdx < 0) return { label: '', rules: [] };
+  const label = textOf(rows[startIdx], 0);
+  const headerIdx = startIdx + 1;
+  const rules = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const score = textOf(rows[i], 0);
+    if (!score) break;
+    rules.push({ riskScore: score, zone: textOf(rows[i], 1), size: textOf(rows[i], 2), action: textOf(rows[i], 3) });
+  }
+  return { label, rules };
+}
+function parseDCARules(rows) {
+  return {
+    btc: parseRuleBlock(rows, (t) => /btc/i.test(t) && /week/i.test(t)),
+    xaut: parseRuleBlock(rows, (t) => /xaut/i.test(t) && /week/i.test(t)),
+  };
+}
+
+/* =========================================================================
+   RULE-ZONE MATCHING
+   ========================================================================= */
+function ruleMatches(riskScoreText, score) {
+  const t = riskScoreText.replace(/\s+/g, '');
+  if (t.startsWith('<')) return score < parseFloat(t.slice(1));
+  if (t.startsWith('>')) return score > parseFloat(t.slice(1));
+  if (t.includes('–') || t.includes('-')) {
+    const sep = t.includes('–') ? '–' : '-';
+    const [lo, hi] = t.split(sep).map(parseFloat);
+    return score >= lo && score <= hi;
+  }
+  return false;
+}
+function currentZone(rules, score) {
+  if (score == null) return null;
+  return rules.find((r) => ruleMatches(r.riskScore, score)) || null;
+}
+
+/* =========================================================================
+   FORMATTERS
+   ========================================================================= */
+const fmtUSD = (n, dp = 2) => n == null ? '—' : (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+const fmtNum = (n, dp = 2) => n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+const fmtPct = (n) => n == null ? '—' : (n >= 0 ? '+' : '') + (n * 100).toFixed(1) + '%';
+const fmtDate = (d) => d ? d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) : '—';
+const fmtDateFull = (d) => d ? d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+/* =========================================================================
+   CANVAS LINE CHART (vanilla, no dependency)
+   ========================================================================= */
+function drawLineChart(canvas, seriesList, opts = {}) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const allPoints = seriesList.flatMap((s) => s.points);
+  if (!allPoints.length) return;
+  const xs = allPoints.map((p) => p.x.getTime());
+  const ys = allPoints.map((p) => p.y);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(0, ...ys);
+  const yMax = Math.max(...ys) * 1.1 || 1;
+
+  const padL = opts.padL || 52, padR = 10, padT = 10, padB = 22;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const xScale = (t) => padL + ((t - xMin) / (xMax - xMin || 1)) * plotW;
+  const yScale = (v) => padT + plotH - ((v - yMin) / (yMax - yMin || 1)) * plotH;
+
+  // grid + y labels
+  ctx.strokeStyle = 'rgba(178,208,255,0.09)';
+  ctx.lineWidth = 1;
+  const rows = 4;
+  ctx.font = '10px "IBM Plex Mono", monospace';
+  for (let i = 0; i <= rows; i++) {
+    const y = padT + (plotH / rows) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    const val = yMax - (yMax - yMin) * (i / rows);
+    ctx.fillStyle = 'rgba(143,173,201,0.8)';
+    ctx.textAlign = 'right';
+    ctx.fillText(opts.yFormatter ? opts.yFormatter(val) : val.toFixed(0), padL - 8, y + 3);
+  }
+
+  // x labels — first, middle, last of the longest series
+  const ref = seriesList.reduce((a, b) => (a.points.length > b.points.length ? a : b));
+  const tickIdxs = [0, Math.floor((ref.points.length - 1) / 2), ref.points.length - 1];
+  ctx.fillStyle = 'rgba(143,173,201,0.8)';
+  ctx.textAlign = 'center';
+  tickIdxs.forEach((i) => {
+    if (!ref.points[i]) return;
+    const x = xScale(ref.points[i].x.getTime());
+    ctx.fillText(fmtDate(ref.points[i].x), x, H - 6);
+  });
+
+  // series
+  seriesList.forEach((s) => {
+    if (!s.points.length) return;
+    ctx.beginPath();
+    s.points.forEach((p, i) => {
+      const x = xScale(p.x.getTime()), y = yScale(p.y);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    if (s.fill) {
+      const last = s.points[s.points.length - 1];
+      ctx.lineTo(xScale(last.x.getTime()), yScale(yMin));
+      ctx.lineTo(xScale(s.points[0].x.getTime()), yScale(yMin));
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+      grad.addColorStop(0, s.color + '33');
+      grad.addColorStop(1, s.color + '02');
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+    ctx.beginPath();
+    if (s.dashed) ctx.setLineDash([4, 4]); else ctx.setLineDash([]);
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.width || 2;
+    s.points.forEach((p, i) => {
+      const x = xScale(p.x.getTime()), y = yScale(p.y);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // last-point dot + label
+    const lastP = s.points[s.points.length - 1];
+    const lx = xScale(lastP.x.getTime()), ly = yScale(lastP.y);
+    ctx.fillStyle = s.color;
+    ctx.beginPath(); ctx.arc(lx, ly, 2.6, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // hover crosshair + highlighted points on each series at the hovered index
+  if (opts.hoverIndex != null && ref.points[opts.hoverIndex]) {
+    const hx = xScale(ref.points[opts.hoverIndex].x.getTime());
+    ctx.save();
+    ctx.strokeStyle = 'rgba(233,242,251,0.4)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(hx, padT);
+    ctx.lineTo(hx, padT + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    seriesList.forEach((s) => {
+      const p = s.points[opts.hoverIndex];
+      if (!p) return;
+      const hy = yScale(p.y);
+      ctx.beginPath();
+      ctx.fillStyle = '#0C1D33';
+      ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 2;
+      ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+  }
+
+  // scale metadata so hover handlers can hit-test cursor position against points
+  canvas.__chartMeta = { xScale, xMin, xMax };
+}
+
+/* =========================================================================
+   CHART HOVER (tooltip + crosshair)
+   ========================================================================= */
+function makeChartHoverable(canvas, redraw, refPoints, tooltipBuilder) {
+  const tooltip = document.getElementById('chart-tooltip');
+
+  function nearestIndex(clientX) {
+    const meta = canvas.__chartMeta;
+    if (!meta) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    let best = 0, bestDist = Infinity;
+    refPoints.forEach((p, i) => {
+      const px = meta.xScale(p.date.getTime());
+      const d = Math.abs(px - mx);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    return best;
+  }
+
+  function onMove(clientX, clientY) {
+    const idx = nearestIndex(clientX);
+    if (idx == null) return;
+    redraw(idx);
+    tooltip.innerHTML = tooltipBuilder(idx);
+    tooltip.style.left = clientX + 16 + 'px';
+    tooltip.style.top = clientY - 12 + 'px';
+    tooltip.classList.remove('hidden');
+  }
+  function onLeave() {
+    tooltip.classList.add('hidden');
+    redraw(null);
+  }
+
+  // Remove any previously attached handlers (renderCharts can be re-run on
+  // resize) so listeners don't stack up.
+  if (canvas.__hoverMove) canvas.removeEventListener('mousemove', canvas.__hoverMove);
+  if (canvas.__hoverLeave) canvas.removeEventListener('mouseleave', canvas.__hoverLeave);
+  if (canvas.__hoverTouchMove) canvas.removeEventListener('touchmove', canvas.__hoverTouchMove);
+  if (canvas.__hoverTouchEnd) canvas.removeEventListener('touchend', canvas.__hoverTouchEnd);
+
+  canvas.__hoverMove = (e) => onMove(e.clientX, e.clientY);
+  canvas.__hoverLeave = onLeave;
+  canvas.__hoverTouchMove = (e) => { if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY); };
+  canvas.__hoverTouchEnd = onLeave;
+
+  canvas.addEventListener('mousemove', canvas.__hoverMove);
+  canvas.addEventListener('mouseleave', canvas.__hoverLeave);
+  canvas.addEventListener('touchmove', canvas.__hoverTouchMove, { passive: true });
+  canvas.addEventListener('touchend', canvas.__hoverTouchEnd);
+}
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+function renderHeroDims(cashPct, okxPct) {
+  const svg = document.getElementById('hero-dims');
+  const okxX = 640 * (cashPct + okxPct / 2) / 100;
+  const cashMidX = 640 * (cashPct / 2) / 100;
+  svg.innerHTML = `
+    <line x1="${cashMidX}" y1="0" x2="${cashMidX}" y2="14"></line>
+    <text class="val" x="${cashMidX}" y="28" text-anchor="middle">${cashPct.toFixed(0)}%</text>
+    <text x="${cashMidX}" y="41" text-anchor="middle">Cash &amp; Bank</text>
+    <line x1="${okxX}" y1="0" x2="${okxX}" y2="14"></line>
+    <text class="val" x="${okxX}" y="28" text-anchor="middle">${okxPct.toFixed(0)}%</text>
+    <text x="${okxX}" y="41" text-anchor="middle">OKX (BTC/XAUT)</text>
+  `;
+}
+
+function renderCharts(chart) {
+  const totalSeries = chart.totalSeries.filter((p) => p.date);
+  const totalCanvas = document.getElementById('chart-total');
+  const totalSeriesList = () => [
+    { points: totalSeries.map((p) => ({ x: p.date, y: p.invested })), color: '#8FADC9', dashed: true, width: 1.5 },
+    { points: totalSeries.map((p) => ({ x: p.date, y: p.value })), color: '#F2A65A', fill: true, width: 2.4 },
+  ];
+  const drawTotal = (hoverIndex) => drawLineChart(totalCanvas, totalSeriesList(), { yFormatter: (v) => '$' + v.toFixed(0), hoverIndex });
+  drawTotal(null);
+  makeChartHoverable(totalCanvas, drawTotal, totalSeries, (i) => {
+    const p = totalSeries[i];
+    return `<div class="tt-date">${fmtDateFull(p.date)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Invested ${fmtUSD(p.invested)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#F2A65A"></span>Value ${fmtUSD(p.value)}</div>
+      <div class="tt-pl ${p.pl >= 0 ? 'pos' : 'neg'}">P&amp;L ${fmtUSD(p.pl)}</div>`;
+  });
+
+  const btcSeries = chart.btcSeries.filter((p) => p.date);
+  const btcCanvas = document.getElementById('chart-btc');
+  const btcSeriesList = () => [
+    { points: btcSeries.map((p) => ({ x: p.date, y: p.avgCost })), color: '#8FADC9', dashed: true, width: 1.3 },
+    { points: btcSeries.map((p) => ({ x: p.date, y: p.weeklyPrice })), color: '#F2A65A', width: 2 },
+  ];
+  const drawBtc = (hoverIndex) => drawLineChart(btcCanvas, btcSeriesList(), { padL: 62, yFormatter: (v) => '$' + (v / 1000).toFixed(0) + 'k', hoverIndex });
+  drawBtc(null);
+  makeChartHoverable(btcCanvas, drawBtc, btcSeries, (i) => {
+    const p = btcSeries[i];
+    return `<div class="tt-date">${fmtDateFull(p.date)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Avg cost ${fmtUSD(p.avgCost)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#F2A65A"></span>Market ${fmtUSD(p.weeklyPrice)}</div>`;
+  });
+
+  const xautSeries = chart.xautSeries.filter((p) => p.date);
+  const xautCanvas = document.getElementById('chart-xaut');
+  const xautSeriesList = () => [
+    { points: xautSeries.map((p) => ({ x: p.date, y: p.avgCost })), color: '#8FADC9', dashed: true, width: 1.3 },
+    { points: xautSeries.map((p) => ({ x: p.date, y: p.weeklyPrice })), color: '#D8C27A', width: 2 },
+  ];
+  const drawXaut = (hoverIndex) => drawLineChart(xautCanvas, xautSeriesList(), { padL: 56, yFormatter: (v) => '$' + v.toFixed(0), hoverIndex });
+  drawXaut(null);
+  makeChartHoverable(xautCanvas, drawXaut, xautSeries, (i) => {
+    const p = xautSeries[i];
+    return `<div class="tt-date">${fmtDateFull(p.date)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Avg cost ${fmtUSD(p.avgCost)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#D8C27A"></span>Market ${fmtUSD(p.weeklyPrice)}</div>`;
+  });
+}
+
+function render(data) {
+  const { savings, summary, trades, rules, chart } = data;
+
+  // ---- title block ----
+  const lastTrade = trades[trades.length - 1];
+  document.getElementById('tb-date').textContent = new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  document.getElementById('tb-rev').textContent = lastTrade ? lastTrade.week : '—';
+  const statusEl = document.getElementById('tb-status');
+  statusEl.textContent = 'live';
+  statusEl.classList.add('status-live');
+
+  // ---- hero ----
+  const total = savings.totalNetSavings ?? 0;
+  const whole = Math.floor(total);
+  const cents = Math.round((total - whole) * 100).toString().padStart(2, '0');
+  document.getElementById('hero-total').innerHTML = `$${whole.toLocaleString()}<span class="cents">.${cents}</span>`;
+
+  const netPL = summary.total ? summary.total.unrealizedPL : null;
+  const deltaEl = document.getElementById('hero-delta');
+  if (netPL != null) {
+    deltaEl.innerHTML = `<span class="${netPL >= 0 ? 'pos' : 'neg'}">${netPL >= 0 ? '+' : ''}${fmtUSD(netPL)}</span> unrealized on DCA positions`;
+  }
+
+  const cashV = savings.cashSubtotal || 0, okxV = savings.okxSubtotal || 0;
+  const sum = cashV + okxV || 1;
+  const cashPct = (cashV / sum) * 100, okxPct = (okxV / sum) * 100;
+  document.getElementById('seg-cash').style.width = cashPct + '%';
+  document.getElementById('seg-okx').style.width = okxPct + '%';
+  renderHeroDims(cashPct, okxPct);
+
+  // ---- foundation ----
+  document.getElementById('fx-note').textContent = savings.fxRate ? `KHR/USD ≈ ${savings.fxRate.toLocaleString()}` : '';
+  const acctRows = document.getElementById('acct-rows');
+  acctRows.innerHTML = savings.accounts.map((a) => `
+    <tr><td>${a.account}</td><td>${a.currency}</td><td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td><td>${fmtUSD(a.balanceUSD)}</td></tr>
+  `).join('') + `<tr class="subtotal"><td colspan="3">Subtotal — Cash &amp; Bank</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr>`;
+
+  // ---- superstructure cards ----
+  const latestByAsset = {};
+  trades.forEach((t) => { latestByAsset[t.asset] = t; });
+  const cardsEl = document.getElementById('asset-cards');
+  // Real cards are whatever assets actually have logged trades — no hardcoding,
+  // so a new asset (e.g. once XSPY gets its first buy) shows up automatically.
+  const tradedAssets = summary.assets.map((a) => a.asset);
+  const ghostAssets = ['XSPY', 'XQQQ'].filter((sym) => !tradedAssets.includes(sym));
+  let cardsHtml = '';
+  summary.assets.forEach((a) => {
+    const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
+    const latest = latestByAsset[a.asset];
+    const ruleSet = a.asset === 'BTC' ? rules.btc : a.asset === 'XAUT' ? rules.xaut : null;
+    const zone = ruleSet && latest ? currentZone(ruleSet.rules, latest.risk) : null;
+    cardsHtml += `
+      <div class="card">
+        <span class="alloc">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '% alloc' : ''}</span>
+        <div class="asset-name">${a.asset}</div>
+        <div class="mv">${fmtUSD(a.marketValue)}</div>
+        <div class="pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
+        <div class="meta">
+          <div><span class="k">Invested</span> ${fmtUSD(a.invested)}</div>
+          <div><span class="k">Units</span> ${a.units != null ? a.units.toFixed(8) : '—'}</div>
+          <div><span class="k">Avg cost</span> ${fmtUSD(a.avgCost)}</div>
+          <div><span class="k">Market</span> ${fmtUSD(a.currentPrice)}</div>
+        </div>
+        ${zone ? `<div class="zone-badge">Risk ${latest.risk.toFixed(2)} → ${zone.zone}</div>` : ''}
+      </div>`;
+  });
+  ghostAssets.forEach((sym) => {
+    cardsHtml += `
+      <div class="card ghost">
+        <div class="asset-name">${sym}</div>
+        <div class="mv">—</div>
+        <div class="pl">No position yet</div>
+      </div>`;
+  });
+  cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
+
+  const paceEl = document.getElementById('pace-strip');
+  if (summary.dcaPace) {
+    paceEl.innerHTML = `
+      <span>Weeks active: <b>${summary.dcaPace.weeksActive}</b></span>
+      <span>Avg $/week: <b>${fmtUSD(summary.dcaPace.avgPerWeek)}</b></span>
+      <span>Total invested: <b>${fmtUSD(summary.total ? summary.total.invested : null)}</b></span>
+    `;
+  }
+
+  // ---- charts ----
+  window.__lastChart = chart;
+  renderCharts(chart);
+
+  // ---- log ----
+  let currentSort = { key: 'date', dir: -1 };
+  let currentFilter = '';
+  function renderLog() {
+    let rows = trades.slice();
+    if (currentFilter) rows = rows.filter((t) => t.asset === currentFilter);
+    rows.sort((a, b) => {
+      let av = a[currentSort.key], bv = b[currentSort.key];
+      if (av instanceof Date) { av = av.getTime(); bv = bv.getTime(); }
+      if (typeof av === 'string') return currentSort.dir * av.localeCompare(bv);
+      return currentSort.dir * ((av ?? 0) - (bv ?? 0));
+    });
+    document.getElementById('log-rows').innerHTML = rows.map((t) => `
+      <tr>
+        <td>${t.week}</td>
+        <td>${fmtDateFull(t.date)}</td>
+        <td class="asset-${t.asset}">${t.asset}</td>
+        <td>${fmtUSD(t.price)}</td>
+        <td>${fmtUSD(t.amount)}</td>
+        <td>${fmtUSD(t.avgCost)}</td>
+        <td>${fmtUSD(t.marketValue)}</td>
+        <td class="${(t.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg'}">${fmtUSD(t.unrealizedPL)}</td>
+        <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
+        <td>${t.notes || ''}</td>
+      </tr>
+    `).join('');
+  }
+  document.getElementById('log-filter').addEventListener('change', (e) => { currentFilter = e.target.value; renderLog(); });
+  document.querySelectorAll('.log-table th[data-key]').forEach((th) => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      currentSort = currentSort.key === key ? { key, dir: -currentSort.dir } : { key, dir: 1 };
+      renderLog();
+    });
+  });
+  renderLog();
+
+  document.getElementById('last-updated').textContent = `Last pulled ${new Date().toLocaleTimeString()}`;
+}
+
+/* =========================================================================
+   LOAD
+   ========================================================================= */
+const EMPTY = {
+  savings: { fxRate: null, accounts: [], cashSubtotal: 0, okx: {}, okxSubtotal: 0, totalNetSavings: 0 },
+  log: [],
+  rules: { btc: { label: 'BTC / USDT', rules: [] }, xaut: { label: 'XAUT / USDT', rules: [] } },
+};
+
+async function loadTab(key, label, parser, timeoutMs, range) {
+  try {
+    const table = await fetchSheetJSONP(label, timeoutMs, range);
+    window.__rawTables[key] = table;
+    return { ok: true, data: parser(table.rows) };
+  } catch (err) {
+    console.error(`[balance-sheet] Failed to load "${label}":`, err.message);
+    window.__rawTables[key] = { error: err.message };
+    return { ok: false, error: err.message, data: EMPTY[key] };
+  }
+}
+
+async function loadAll() {
+  document.getElementById('state-loading').classList.remove('hidden');
+  document.getElementById('state-error').classList.add('hidden');
+  document.getElementById('content').classList.add('hidden');
+  window.__rawTables = {};
+
+  const [savingsR, logR, rulesR] = await Promise.all([
+    loadTab('savings', TABS.savings, parseSavingsDashboard),
+    loadTab('log', TABS.log, parseDCALog),
+    loadTab('rules', TABS.rules, parseDCARules),
+  ]);
+
+  const results = { savings: savingsR, log: logR, rules: rulesR };
+  const failed = Object.entries(results).filter(([, r]) => !r.ok);
+
+  document.getElementById('state-loading').classList.add('hidden');
+
+  if (failed.length === Object.keys(results).length) {
+    const errEl = document.getElementById('state-error');
+    errEl.innerHTML = `Couldn't load live data: ${failed[0][1].error}. Make sure the sheet is shared as
+      <b>"Anyone with the link — Viewer"</b>, then hit refresh.`;
+    errEl.classList.remove('hidden');
+    document.getElementById('tb-status').textContent = 'stale';
+    document.getElementById('tb-status').classList.add('status-stale');
+    return;
+  }
+
+  const trades = logR.data;
+  // Un-hide the container BEFORE drawing charts: canvas needs real layout
+  // dimensions (getBoundingClientRect) to draw into, and a display:none
+  // ancestor reports 0×0, which silently no-ops the chart drawing.
+  document.getElementById('content').classList.remove('hidden');
+  render({
+    savings: savingsR.data,
+    trades,
+    rules: rulesR.data,
+    summary: computeSummaryFromLog(trades),
+    chart: computeChartDataFromLog(trades),
+  });
+
+  if (failed.length) {
+    const errEl = document.getElementById('state-error');
+    errEl.innerHTML = `Some tabs didn't load (${failed.map(([k, r]) => `${TABS[k]}: ${r.error}`).join(' · ')}). The rest of the page is showing live data; check the console for details.`;
+    errEl.classList.remove('hidden');
+  }
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadAll);
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!document.getElementById('content').classList.contains('hidden') && window.__lastChart) {
+      renderCharts(window.__lastChart);
+    }
+  }, 150);
+});
+loadAll();
+</script>
+</body>
+</html>

@@ -218,6 +218,10 @@
     font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;
     border:1px solid var(--accent);color:var(--accent);
   }
+  .card .card-footer{margin-top:10px;padding-top:8px;border-top:1px dashed var(--hair);}
+  .card .last-buy{font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-bottom:6px;letter-spacing:.03em;}
+  .card .last-buy b{color:var(--ink-dim);}
+  .card .sparkline-canvas{display:block;width:100%;height:36px;}
 
   .pace-strip{
     display:flex;gap:24px;flex-wrap:wrap;
@@ -602,6 +606,10 @@ function computeChartDataFromLog(trades) {
     const date = rowsThisWeek[0] ? rowsThisWeek[0].date : null;
     return { date, invested, value, pl: value - invested };
   });
+  // add weekly buy delta (invested this week, not cumulative) for the bar overlay
+  totalSeries.forEach((p, i) => {
+    p.weeklyAmount = i === 0 ? p.invested : p.invested - totalSeries[i - 1].invested;
+  });
 
   return { btcSeries: seriesFor('BTC'), xautSeries: seriesFor('XAUT'), totalSeries };
 }
@@ -734,6 +742,34 @@ function drawLineChart(canvas, seriesList, opts = {}) {
     const x = xScale(ref.points[i].x.getTime());
     ctx.fillText(fmtDate(ref.points[i].x), x, H - 6);
   });
+
+  // bars overlay (weekly buy amounts) — drawn before lines so lines sit on top.
+  // Bars use their own scale occupying the bottom 28% of the plot area so they
+  // don't compete with the line scale, and get a subtle right-side axis label.
+  if (opts.bars && opts.bars.length) {
+    const barMax = Math.max(...opts.bars.map((b) => b.y)) * 1.2 || 1;
+    const barAreaH = plotH * 0.28;
+    const barW = Math.max(4, (plotW / opts.bars.length) * 0.4);
+    const barScale = (v) => (v / barMax) * barAreaH;
+    const barBaseline = padT + plotH;
+    opts.bars.forEach((b) => {
+      const bx = xScale(b.x.getTime());
+      const bh = barScale(b.y);
+      ctx.fillStyle = 'rgba(242,166,90,0.18)';
+      ctx.strokeStyle = 'rgba(242,166,90,0.4)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(bx - barW / 2, barBaseline - bh, barW, bh);
+      ctx.strokeRect(bx - barW / 2, barBaseline - bh, barW, bh);
+    });
+    // right-side axis label at the bar area top ($max)
+    ctx.fillStyle = 'rgba(242,166,90,0.55)';
+    ctx.font = '9px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('$' + barMax.toFixed(0) + '/wk', W - padR + 3, barBaseline - barAreaH + 3);
+    ctx.fillText('$0', W - padR + 3, barBaseline - 1);
+    ctx.fillStyle = 'rgba(143,173,201,0.8)';
+    ctx.font = '10px "IBM Plex Mono", monospace';
+  }
 
   // series
   seriesList.forEach((s) => {
@@ -881,14 +917,16 @@ function renderCharts(chart) {
     { points: totalSeries.map((p) => ({ x: p.date, y: p.invested })), color: '#8FADC9', dashed: true, width: 1.5 },
     { points: totalSeries.map((p) => ({ x: p.date, y: p.value })), color: '#F2A65A', fill: true, width: 2.4 },
   ];
-  const drawTotal = (hoverIndex) => drawLineChart(totalCanvas, totalSeriesList(), { yFormatter: (v) => '$' + v.toFixed(0), hoverIndex });
+  const totalBars = totalSeries.map((p) => ({ x: p.date, y: p.weeklyAmount || 0 }));
+  const drawTotal = (hoverIndex) => drawLineChart(totalCanvas, totalSeriesList(), { yFormatter: (v) => '$' + v.toFixed(0), hoverIndex, bars: totalBars });
   drawTotal(null);
   makeChartHoverable(totalCanvas, drawTotal, totalSeries, (i) => {
     const p = totalSeries[i];
     return `<div class="tt-date">${fmtDateFull(p.date)}</div>
       <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Invested ${fmtUSD(p.invested)}</div>
       <div class="tt-row"><span class="tt-dot" style="background:#F2A65A"></span>Value ${fmtUSD(p.value)}</div>
-      <div class="tt-pl ${p.pl >= 0 ? 'pos' : 'neg'}">P&amp;L ${fmtUSD(p.pl)}</div>`;
+      <div class="tt-pl ${p.pl >= 0 ? 'pos' : 'neg'}">P&amp;L ${fmtUSD(p.pl)}</div>
+      ${p.weeklyAmount ? `<div class="tt-pl" style="color:rgba(242,166,90,0.7)">Bought ${fmtUSD(p.weeklyAmount)}</div>` : ''}`;
   });
 
   const btcSeries = chart.btcSeries.filter((p) => p.date);
@@ -920,6 +958,86 @@ function renderCharts(chart) {
       <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Avg cost ${fmtUSD(p.avgCost)}</div>
       <div class="tt-row"><span class="tt-dot" style="background:#D8C27A"></span>Market ${fmtUSD(p.weeklyPrice)}</div>`;
   });
+}
+
+/* =========================================================================
+   SPARKLINE (risk score trend per card)
+   ========================================================================= */
+function drawSparkline(canvas, riskHistory) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !riskHistory.length) return;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 4, padR = 30, padT = 3, padB = 3;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const n = riskHistory.length;
+  const xOf = (i) => padL + (n < 2 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yOf = (v) => padT + plotH - Math.min(1, Math.max(0, v)) * plotH;
+
+  // zone bands (faint background): accumulate / hold / sell
+  const bands = [
+    { from: 0,    to: 0.40, color: 'rgba(127,217,174,0.06)' },
+    { from: 0.40, to: 0.60, color: 'rgba(242,166,90,0.06)'  },
+    { from: 0.60, to: 1.00, color: 'rgba(240,120,138,0.07)' },
+  ];
+  bands.forEach((b) => {
+    ctx.fillStyle = b.color;
+    ctx.fillRect(padL, yOf(b.to), plotW, yOf(b.from) - yOf(b.to));
+  });
+
+  // threshold lines at 0.40 and 0.60
+  [0.40, 0.60].forEach((thresh) => {
+    const ty = yOf(thresh);
+    ctx.strokeStyle = 'rgba(178,208,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + plotW, ty); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // risk line
+  ctx.beginPath();
+  riskHistory.forEach((p, i) => {
+    const x = xOf(i), y = yOf(p.risk);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = 'rgba(233,242,251,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // dots colored by zone
+  function zoneColor(v) {
+    if (v < 0.40) return '#7FD9AE';
+    if (v < 0.60) return '#F2A65A';
+    return '#F0788A';
+  }
+  riskHistory.forEach((p, i) => {
+    const x = xOf(i), y = yOf(p.risk);
+    ctx.beginPath();
+    ctx.fillStyle = zoneColor(p.risk);
+    ctx.arc(x, y, i === n - 1 ? 3 : 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // right-side label: latest risk value
+  const latest = riskHistory[n - 1];
+  ctx.font = `bold 9px "IBM Plex Mono", monospace`;
+  ctx.fillStyle = zoneColor(latest.risk);
+  ctx.textAlign = 'left';
+  ctx.fillText(latest.risk.toFixed(2), padL + plotW + 4, yOf(latest.risk) + 3);
+
+  // axis labels 0 and 1
+  ctx.font = '8px "IBM Plex Mono", monospace';
+  ctx.fillStyle = 'rgba(84,114,143,0.8)';
+  ctx.fillText('1', padL + plotW + 4, padT + 7);
+  ctx.fillText('0', padL + plotW + 4, padT + plotH + 1);
 }
 
 function render(data) {
@@ -962,9 +1080,27 @@ function render(data) {
   // ---- superstructure cards ----
   const latestByAsset = {};
   trades.forEach((t) => { latestByAsset[t.asset] = t; });
+
+  // per-asset risk history and last-buy date for #2 and #10
+  const riskByAsset = {};
+  const lastBuyByAsset = {};
+  trades.slice().sort((a, b) => (a.date && b.date ? a.date - b.date : 0)).forEach((t) => {
+    if (t.risk != null) {
+      (riskByAsset[t.asset] = riskByAsset[t.asset] || []).push({ date: t.date, risk: t.risk });
+    }
+    if (t.type && /buy/i.test(t.type) && t.date) {
+      if (!lastBuyByAsset[t.asset] || t.date > lastBuyByAsset[t.asset]) {
+        lastBuyByAsset[t.asset] = t.date;
+      }
+    }
+  });
+  const today = new Date();
+  function daysSince(d) {
+    if (!d) return null;
+    return Math.floor((today - d) / 86400000);
+  }
+
   const cardsEl = document.getElementById('asset-cards');
-  // Real cards are whatever assets actually have logged trades — no hardcoding,
-  // so a new asset (e.g. once XSPY gets its first buy) shows up automatically.
   const tradedAssets = summary.assets.map((a) => a.asset);
   const ghostAssets = ['XSPY', 'XQQQ'].filter((sym) => !tradedAssets.includes(sym));
   let cardsHtml = '';
@@ -973,6 +1109,7 @@ function render(data) {
     const latest = latestByAsset[a.asset];
     const ruleSet = a.asset === 'BTC' ? rules.btc : a.asset === 'XAUT' ? rules.xaut : null;
     const zone = ruleSet && latest ? currentZone(ruleSet.rules, latest.risk) : null;
+    const days = daysSince(lastBuyByAsset[a.asset]);
     cardsHtml += `
       <div class="card">
         <span class="alloc">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '% alloc' : ''}</span>
@@ -984,6 +1121,10 @@ function render(data) {
           <div><span class="k">Units</span> ${a.units != null ? a.units.toFixed(8) : '—'}</div>
           <div><span class="k">Avg cost</span> ${fmtUSD(a.avgCost)}</div>
           <div><span class="k">Market</span> ${fmtUSD(a.currentPrice)}</div>
+        </div>
+        <div class="card-footer">
+          <div class="last-buy">Last buy: <b>${days != null ? days + 'd ago' : '—'}</b></div>
+          <canvas class="sparkline-canvas" id="spark-${a.asset}"></canvas>
         </div>
         ${zone ? `<div class="zone-badge">Risk ${latest.risk.toFixed(2)} → ${zone.zone}</div>` : ''}
       </div>`;
@@ -997,6 +1138,14 @@ function render(data) {
       </div>`;
   });
   cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
+
+  // draw sparklines now that the canvas elements exist in the DOM
+  summary.assets.forEach((a) => {
+    const canvas = document.getElementById('spark-' + a.asset);
+    if (canvas && riskByAsset[a.asset]) {
+      drawSparkline(canvas, riskByAsset[a.asset]);
+    }
+  });
 
   const paceEl = document.getElementById('pace-strip');
   if (summary.dcaPace) {

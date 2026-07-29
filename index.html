@@ -273,6 +273,47 @@
   }
   .footer-note button:hover{color:var(--ink);border-color:var(--accent);}
 
+  /* ===== PRINT SNAPSHOT ===== */
+  #print-snapshot{display:none;}
+  @media print{
+    .wrap{display:none !important;}
+    #print-snapshot{display:block !important;}
+    @page{margin:14mm;size:A4 portrait;}
+  }
+  #print-snapshot{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-size:9pt;color:#111;line-height:1.6;
+  }
+  .ps-header{display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:2px solid #111;padding-bottom:5pt;margin-bottom:12pt;}
+  .ps-title{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15pt;font-weight:700;color:#111;}
+  .ps-date{font-size:8pt;color:#555;text-align:right;}
+  .ps-section{margin-bottom:12pt;}
+  .ps-sh{font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:#666;
+    border-bottom:1px solid #bbb;padding-bottom:2pt;margin-bottom:6pt;}
+  .ps-hero{font-family:'IBM Plex Sans',sans-serif;font-size:24pt;font-weight:700;line-height:1;}
+  .ps-hero-sub{font-size:8.5pt;color:#555;margin-top:3pt;}
+  .ps-table{width:100%;border-collapse:collapse;font-size:8.5pt;}
+  .ps-table th{color:#777;font-weight:500;text-transform:uppercase;font-size:7pt;
+    padding:2pt 5pt;border-bottom:1px solid #bbb;text-align:right;}
+  .ps-table th:first-child{text-align:left;}
+  .ps-table td{padding:2.5pt 5pt;border-bottom:1px solid #eee;text-align:right;}
+  .ps-table td:first-child{text-align:left;}
+  .ps-table tr.ps-total td{font-weight:700;border-top:1px solid #999;border-bottom:none;}
+  .ps-positions{display:grid;grid-template-columns:1fr 1fr;gap:10pt;margin-bottom:6pt;}
+  .ps-card{border:1px solid #bbb;padding:7pt 9pt;}
+  .pc-name{font-size:12pt;font-weight:700;margin-bottom:3pt;}
+  .pc-mv{font-size:17pt;font-weight:700;line-height:1.1;}
+  .pc-pl{font-size:8.5pt;margin-bottom:5pt;}
+  .pc-pl.pos{color:#1a7a4a;}.pc-pl.neg{color:#c0392b;}
+  .pc-meta{font-size:8pt;color:#444;display:grid;grid-template-columns:auto 1fr;gap:1pt 8pt;}
+  .pc-meta .k{color:#888;}
+  .ps-chart img{width:100%;display:block;margin:4pt 0;}
+  .ps-log-wrap{overflow:hidden;}
+  .ps-footer{display:flex;justify-content:space-between;font-size:7.5pt;color:#888;
+    border-top:1px solid #bbb;padding-top:5pt;margin-top:10pt;}
+  .ps-pl-pos{color:#1a7a4a;}.ps-pl-neg{color:#c0392b;}
+
   .state-banner{
     font-family:var(--mono);font-size:12px;padding:12px 14px;border:1px solid var(--hair-bright);
     background:var(--bg-panel);color:var(--ink-dim);margin-bottom:18px;
@@ -433,11 +474,14 @@
   <div class="footer-note">
     <span id="last-updated">—</span>
     <button id="refresh-btn">Refresh</button>
+    <button id="print-btn">Print Snapshot</button>
   </div>
 
   <div class="chart-tooltip hidden" id="chart-tooltip"></div>
 
 </div>
+
+<div id="print-snapshot"></div>
 
 <script>
 /* =========================================================================
@@ -1319,6 +1363,7 @@ function render(data) {
 
   // ---- charts ----
   window.__lastChart = chart;
+  window.__lastRenderData = data;
   renderCharts(chart);
 
   // ---- log ----
@@ -1439,6 +1484,141 @@ window.addEventListener('resize', () => {
     }
   }, 150);
 });
+
+/* =========================================================================
+   PRINT SNAPSHOT
+   ========================================================================= */
+function buildPrintSnapshot(data) {
+  const { savings, summary, trades } = data;
+  const snap = document.getElementById('print-snapshot');
+  if (!snap) return;
+
+  // capture equity curve canvas as image before rebuilding DOM
+  const chartCanvas = document.getElementById('chart-total');
+  const chartImg = chartCanvas ? chartCanvas.toDataURL('image/png') : null;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const daysLeft = Math.max(0, Math.ceil((DEBT_FREE_DATE - now) / 86400000));
+
+  const latestByAsset = {};
+  trades.forEach((t) => { latestByAsset[t.asset] = t; });
+
+  // accounts rows
+  const acctRows = savings.accounts.map((a) => `
+    <tr>
+      <td>${a.account}</td>
+      <td>${a.currency}</td>
+      <td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td>
+      <td>${fmtUSD(a.balanceUSD)}</td>
+    </tr>`).join('');
+
+  // position cards
+  const posCards = summary.assets.map((a) => {
+    const latest = latestByAsset[a.asset];
+    const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
+    const days = latest && latest.date ? Math.floor((now - latest.date) / 86400000) : null;
+    return `
+      <div class="ps-card">
+        <div class="pc-name">${a.asset}</div>
+        <div class="pc-mv">${fmtUSD(a.marketValue)}</div>
+        <div class="pc-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
+        <div class="pc-meta">
+          <span class="k">Invested</span><span>${fmtUSD(a.invested)}</span>
+          <span class="k">Units</span><span>${a.units != null ? a.units.toFixed(8) : '—'}</span>
+          <span class="k">Avg cost</span><span>${fmtUSD(a.avgCost)}</span>
+          <span class="k">Market</span><span>${fmtUSD(a.currentPrice)}</span>
+          <span class="k">Risk</span><span>${latest && latest.risk != null ? latest.risk.toFixed(2) : '—'}</span>
+          <span class="k">Last buy</span><span>${days != null ? days + 'd ago' : '—'}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // trade log — newest first
+  const logRows = trades.slice()
+    .sort((a, b) => (b.date && a.date ? b.date - a.date : 0))
+    .map((t) => {
+      const cls = (t.unrealizedPL ?? 0) >= 0 ? 'ps-pl-pos' : 'ps-pl-neg';
+      return `<tr>
+        <td>${t.week}</td><td>${fmtDateFull(t.date)}</td><td>${t.asset}</td>
+        <td>${fmtUSD(t.price)}</td><td>${fmtUSD(t.amount)}</td>
+        <td>${fmtUSD(t.avgCost)}</td><td>${fmtUSD(t.marketValue)}</td>
+        <td class="${cls}">${fmtUSD(t.unrealizedPL)}</td>
+        <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
+      </tr>`;
+    }).join('');
+
+  snap.innerHTML = `
+    <div class="ps-header">
+      <div>
+        <div class="ps-title">Personal Balance Sheet</div>
+        <div class="ps-date">Monthly Snapshot</div>
+      </div>
+      <div class="ps-date" style="text-align:right">${dateStr}<br>${timeStr}</div>
+    </div>
+
+    <div class="ps-section">
+      <div class="ps-hero">${fmtUSD(savings.totalNetSavings)}</div>
+      <div class="ps-hero-sub">
+        Cash &amp; Bank ${fmtUSD(savings.cashSubtotal)}
+        &nbsp;·&nbsp; OKX (BTC / XAUT) ${fmtUSD(savings.okxSubtotal)}
+      </div>
+    </div>
+
+    <div class="ps-section">
+      <div class="ps-sh">Foundation — Cash &amp; Bank</div>
+      <table class="ps-table">
+        <thead><tr><th>Account</th><th>Currency</th><th>Native</th><th>USD</th></tr></thead>
+        <tbody>${acctRows}</tbody>
+        <tfoot><tr class="ps-total"><td colspan="3">Subtotal</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="ps-section">
+      <div class="ps-sh">Superstructure — DCA Positions</div>
+      <div class="ps-positions">${posCards}</div>
+      ${summary.dcaPace ? `<div style="font-size:8pt;color:#666">
+        Weeks active: ${summary.dcaPace.weeksActive}
+        &nbsp;·&nbsp; Avg/week: ${fmtUSD(summary.dcaPace.avgPerWeek)}
+        &nbsp;·&nbsp; Total invested: ${fmtUSD(summary.total ? summary.total.invested : null)}
+        &nbsp;·&nbsp; Portfolio value: ${fmtUSD(summary.total ? summary.total.marketValue : null)}
+      </div>` : ''}
+    </div>
+
+    ${chartImg ? `
+    <div class="ps-section">
+      <div class="ps-sh">Load History — Equity Curve</div>
+      <div class="ps-chart"><img src="${chartImg}" /></div>
+    </div>` : ''}
+
+    <div class="ps-section">
+      <div class="ps-sh">Site Log — ${trades.length} Trades</div>
+      <table class="ps-table">
+        <thead><tr>
+          <th>Wk</th><th>Date</th><th>Asset</th><th>Price</th><th>Amount</th>
+          <th>Avg Cost</th><th>Mkt Value</th><th>Unreal. P&amp;L</th><th>Risk</th>
+        </tr></thead>
+        <tbody>${logRows}</tbody>
+      </table>
+    </div>
+
+    <div class="ps-footer">
+      <span>KHR/USD ≈ ${savings.fxRate ? savings.fxRate.toLocaleString() : '—'}</span>
+      <span>Debt freedom: ${daysLeft} days (Dec 31, 2026)</span>
+      <span>Generated ${dateStr}</span>
+    </div>`;
+}
+
+document.getElementById('print-btn').addEventListener('click', () => {
+  if (!window.__lastRenderData) {
+    alert('Data not loaded yet — wait for the page to finish loading then try again.');
+    return;
+  }
+  buildPrintSnapshot(window.__lastRenderData);
+  window.print();
+});
+
 loadAll();
 </script>
 </body>

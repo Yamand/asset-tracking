@@ -6,33 +6,39 @@
 <title>Balance Sheet — Personal Capital Drawing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0C1D33;
-    --bg-panel:#102844;
-    --bg-panel-2:#0E2338;
-    --grid:rgba(178,208,255,0.055);
-    --grid-strong:rgba(178,208,255,0.12);
-    --ink:#E9F2FB;
-    --ink-dim:#8FADC9;
-    --ink-faint:#54728F;
-    --accent:#F2A65A;
-    --accent-soft:rgba(242,166,90,0.16);
-    --gain:#7FD9AE;
-    --loss:#F0788A;
-    --hair:#24466B;
-    --hair-bright:#3D6699;
+    --bg:#0A0B14;
+    --bg-panel:rgba(255,255,255,0.045);
+    --bg-panel-2:rgba(255,255,255,0.025);
+    --grid:rgba(139,92,246,0.05);
+    --grid-strong:rgba(139,92,246,0.1);
+    --ink:#F1F3FA;
+    --ink-dim:#9BA3BE;
+    --ink-faint:#5A6178;
+    --accent:#8B5CF6;
+    --accent2:#22D3EE;
+    --accent-soft:rgba(139,92,246,0.18);
+    --gain:#34D399;
+    --loss:#FB7185;
+    --hair:rgba(255,255,255,0.08);
+    --hair-bright:rgba(255,255,255,0.18);
+    --glow:0 0 32px rgba(139,92,246,0.28);
+    --glow-cyan:0 0 32px rgba(34,211,238,0.22);
+    --radius:16px;
     --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
-    --sans:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --sans:'Space Grotesk', 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
     background-color:var(--bg);
     background-image:
-      repeating-linear-gradient(0deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 28px),
-      repeating-linear-gradient(90deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 28px);
+      radial-gradient(circle at 12% 8%, rgba(139,92,246,0.16), transparent 42%),
+      radial-gradient(circle at 88% 4%, rgba(34,211,238,0.13), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(236,72,153,0.07), transparent 55%);
+    background-attachment:fixed;
     color:var(--ink);
     font-family:var(--sans);
     line-height:1.45;
@@ -127,8 +133,8 @@
     border:1px solid var(--hair-bright);
     overflow:hidden;
   }
-  .hero-bar .seg-cash{background:linear-gradient(180deg,#3D6699,#2C4E70);}
-  .hero-bar .seg-okx{background:linear-gradient(180deg,var(--accent),#C77F3A);}
+  .hero-bar .seg-cash{background:linear-gradient(180deg,#5B4FCF,#3730A3);}
+  .hero-bar .seg-okx{background:linear-gradient(180deg,var(--accent2),#0E7490);}
   .hero-dims{width:100%;height:46px;display:block;font-family:var(--mono);}
   .hero-dims text{fill:var(--ink-dim);font-size:11px;}
   .hero-dims .val{fill:var(--ink);font-weight:600;}
@@ -191,7 +197,7 @@
     border-top:1px solid var(--hair-bright);
     border-bottom:none;
   }
-  .acct-table tr:hover td{background:rgba(180,208,255,0.03);}
+  .acct-table tr:hover td{background:rgba(139,92,246,0.05);}
 
   /* ---------- superstructure cards ---------- */
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:16px;}
@@ -262,8 +268,8 @@
   .log-table th, .log-table td{padding:6px 9px;font-family:var(--mono);border-bottom:1px solid var(--hair);white-space:nowrap;}
   .log-table th{color:var(--ink-faint);text-transform:uppercase;font-size:10px;font-weight:500;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg-panel);}
   .log-table td.asset-BTC{color:var(--accent);}
-  .log-table td.asset-XAUT{color:#D8C27A;}
-  .log-table tr:hover td{background:rgba(180,208,255,0.03);}
+  .log-table td.asset-XAUT{color:#FBBF24;}
+  .log-table tr:hover td{background:rgba(139,92,246,0.05);}
 
   /* ---------- footer / states ---------- */
   .footer-note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);text-align:center;margin-top:36px;}
@@ -342,12 +348,131 @@
   /* savings gauge segment colors */
   .seg-fixed{background:var(--hair-bright);}
   .seg-dca{background:var(--accent);}
-  .seg-free{background:rgba(127,217,174,0.55);}
+  .seg-free{background:rgba(52,211,153,0.55);}
 
   /* debt progress bar */
   .fp-progress{height:8px;background:var(--bg-panel-2);border:1px solid var(--hair);margin:10px 0 5px;position:relative;overflow:hidden;}
-  .fp-progress .fp-fill{height:100%;background:linear-gradient(90deg,#3D6699,var(--accent));transition:width .6s ease;}
+  .fp-progress .fp-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .6s ease;}
   .fp-ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--ink-faint);}
+
+  /* =========================================================================
+     MODERN GLASS OVERRIDE LAYER
+     ========================================================================= */
+  .titleblock, .card, .chart-box, .fin-panel, .log-wrap, .pace-strip,
+  .state-banner, .chart-tooltip, .log-controls input, .log-controls select,
+  .footer-note button{
+    background:var(--bg-panel) !important;
+    backdrop-filter:blur(20px) saturate(150%);
+    -webkit-backdrop-filter:blur(20px) saturate(150%);
+    border:1px solid var(--hair-bright) !important;
+    border-radius:var(--radius) !important;
+  }
+  .titleblock .tb-main, .titleblock .tb-field{border-right-color:var(--hair) !important;}
+  .card{box-shadow:0 8px 32px rgba(0,0,0,0.35);transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;}
+  .card:hover{transform:translateY(-2px);border-color:rgba(139,92,246,0.4) !important;box-shadow:0 12px 40px rgba(0,0,0,0.4), var(--glow);}
+  .chart-box, .fin-panel{box-shadow:0 8px 28px rgba(0,0,0,0.3);}
+  .log-controls input, .log-controls select{border-radius:10px !important;}
+  .footer-note button{border-radius:10px !important;}
+  .footer-note button:hover{box-shadow:var(--glow);border-color:rgba(139,92,246,0.5) !important;}
+
+  /* rounded pill tags instead of square blueprint tags */
+  .sheet-head .tag{border-radius:20px;border-color:var(--hair-bright);background:var(--accent-soft);}
+  .card .zone-badge{border-radius:20px;border-color:var(--accent);background:var(--accent-soft);}
+  .titleblock{border-radius:var(--radius) !important;overflow:hidden;}
+
+  /* soften/solidify the blueprint dashed hairlines for a cleaner glass feel */
+  .hero, .card .meta, .card .card-footer, .chart-tooltip .tt-pl{
+    border-style:solid !important;
+    border-color:var(--hair) !important;
+  }
+
+  /* glow + gradient accents on key figures */
+  .hero .figure{
+    background:linear-gradient(90deg,#F1F3FA 0%,#F1F3FA 55%,var(--accent2) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 26px rgba(139,92,246,0.35));
+  }
+  .hero .eyebrow{text-shadow:0 0 18px rgba(139,92,246,0.5);}
+  .card .mv{
+    background:linear-gradient(90deg,var(--ink),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .hero-bar .bar{border-radius:11px;overflow:hidden;border-color:var(--hair-bright) !important;}
+  .fp-bar, .fp-progress{border-radius:8px;overflow:hidden;}
+
+  /* clickable asset cards */
+  .card[role="button"]{cursor:pointer;}
+  .card[role="button"]:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;}
+  .card-expand-hint{
+    margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;
+    color:var(--ink-faint);opacity:0;transform:translateY(-2px);
+    transition:opacity .18s ease, transform .18s ease, color .18s ease;
+  }
+  .card[role="button"]:hover .card-expand-hint,
+  .card[role="button"]:focus-visible .card-expand-hint{opacity:1;transform:translateY(0);color:var(--accent2);}
+
+  /* ---------- asset detail modal ---------- */
+  .modal-overlay{
+    position:fixed;inset:0;z-index:200;
+    background:rgba(4,4,10,0.6);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;
+    padding:24px 16px;
+    opacity:1;transition:opacity .2s ease;
+  }
+  .modal-overlay.hidden{display:none;}
+  .modal-panel{
+    position:relative;width:100%;max-width:760px;max-height:min(85vh,860px);
+    overflow-y:auto;
+    background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)) , var(--bg);
+    background-blend-mode:overlay;
+    border:1px solid var(--hair-bright);border-radius:20px;
+    padding:26px 26px 22px;
+    box-shadow:0 24px 80px rgba(0,0,0,0.55), var(--glow);
+    animation:modal-in .18s ease;
+  }
+  @keyframes modal-in{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:none;}}
+  .modal-close{
+    position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;
+    border:1px solid var(--hair-bright);background:var(--bg-panel-2);color:var(--ink-dim);
+    font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .modal-close:hover{color:var(--ink);border-color:var(--accent2);box-shadow:var(--glow-cyan);}
+
+  .modal-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;padding-right:36px;}
+  .modal-head .modal-asset{font-family:var(--sans);font-weight:700;font-size:26px;color:var(--ink);}
+  .modal-head .modal-mv{font-family:var(--mono);font-size:22px;font-weight:600;
+    background:linear-gradient(90deg,var(--ink),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .modal-head .modal-pl{font-family:var(--mono);font-size:13px;margin-left:auto;}
+
+  .modal-stats{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px 16px;
+    font-family:var(--mono);font-size:12px;color:var(--ink-dim);
+    margin:16px 0;padding:14px;border:1px solid var(--hair);border-radius:12px;background:var(--bg-panel-2);
+  }
+  .modal-stats .k{display:block;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+  .modal-stats .v{color:var(--ink);font-size:13px;}
+
+  .modal-section{margin-top:22px;}
+  .modal-section h3{
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent2);margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--hair);
+  }
+  .modal-chart-box canvas{width:100%;height:150px;display:block;}
+  .modal-empty{font-family:var(--mono);font-size:12px;color:var(--ink-faint);padding:10px 0;}
+
+  .zone-table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);}
+  .zone-table th, .zone-table td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--hair);}
+  .zone-table th{color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:500;}
+  .zone-table tr.zone-current td{color:var(--ink);font-weight:600;background:var(--accent-soft);}
+  .zone-table tr.zone-current td:first-child{border-left:2px solid var(--accent2);}
+
+  .modal-log-wrap{max-height:260px;overflow:auto;border:1px solid var(--hair);border-radius:12px;}
+  .modal-log-wrap table{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);}
+  .modal-log-wrap th, .modal-log-wrap td{padding:6px 9px;text-align:right;border-bottom:1px solid var(--hair);white-space:nowrap;}
+  .modal-log-wrap th{position:sticky;top:0;background:var(--bg-panel-2);backdrop-filter:blur(10px);color:var(--ink-faint);text-transform:uppercase;font-size:10px;font-weight:500;}
+  .modal-log-wrap td:first-child, .modal-log-wrap th:first-child{text-align:left;}
 
 </style>
 </head>
@@ -482,6 +607,13 @@
 </div>
 
 <div id="print-snapshot"></div>
+
+<div class="modal-overlay hidden" id="asset-modal" role="dialog" aria-modal="true">
+  <div class="modal-panel">
+    <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
 
 <script>
 /* =========================================================================
@@ -800,7 +932,7 @@ function drawLineChart(canvas, seriesList, opts = {}) {
   const yScale = (v) => padT + plotH - ((v - yMin) / (yMax - yMin || 1)) * plotH;
 
   // grid + y labels
-  ctx.strokeStyle = 'rgba(178,208,255,0.09)';
+  ctx.strokeStyle = 'rgba(155,163,190,0.09)';
   ctx.lineWidth = 1;
   const rows = 4;
   ctx.font = '10px "IBM Plex Mono", monospace';
@@ -836,14 +968,14 @@ function drawLineChart(canvas, seriesList, opts = {}) {
     opts.bars.forEach((b) => {
       const bx = xScale(b.x.getTime());
       const bh = barScale(b.y);
-      ctx.fillStyle = 'rgba(242,166,90,0.18)';
-      ctx.strokeStyle = 'rgba(242,166,90,0.4)';
+      ctx.fillStyle = 'rgba(139,92,246,0.18)';
+      ctx.strokeStyle = 'rgba(139,92,246,0.4)';
       ctx.lineWidth = 1;
       ctx.fillRect(bx - barW / 2, barBaseline - bh, barW, bh);
       ctx.strokeRect(bx - barW / 2, barBaseline - bh, barW, bh);
     });
     // right-side axis label at the bar area top ($max)
-    ctx.fillStyle = 'rgba(242,166,90,0.55)';
+    ctx.fillStyle = 'rgba(139,92,246,0.55)';
     ctx.font = '9px "IBM Plex Mono", monospace';
     ctx.textAlign = 'left';
     ctx.fillText('$' + barMax.toFixed(0) + '/wk', W - padR + 3, barBaseline - barAreaH + 3);
@@ -893,7 +1025,7 @@ function drawLineChart(canvas, seriesList, opts = {}) {
   if (opts.hoverIndex != null && ref.points[opts.hoverIndex]) {
     const hx = xScale(ref.points[opts.hoverIndex].x.getTime());
     ctx.save();
-    ctx.strokeStyle = 'rgba(233,242,251,0.4)';
+    ctx.strokeStyle = 'rgba(241,243,250,0.4)';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     ctx.beginPath();
@@ -907,7 +1039,7 @@ function drawLineChart(canvas, seriesList, opts = {}) {
       if (!p) return;
       const hy = yScale(p.y);
       ctx.beginPath();
-      ctx.fillStyle = '#0C1D33';
+      ctx.fillStyle = '#0A0B14';
       ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
@@ -1091,20 +1223,20 @@ function computeMilestones(totalSeries) {
   totalSeries.forEach((p, i) => {
     if (!p.date) return;
     if (!profitFound && p.pl > 0) {
-      milestones.push({ date: p.date, label: 'In profit', color: '#7FD9AE' });
+      milestones.push({ date: p.date, label: 'In profit', color: '#34D399' });
       profitFound = true;
     }
     if (!h100Found && p.invested >= 100) {
-      milestones.push({ date: p.date, label: '$100 in', color: '#F2A65A' });
+      milestones.push({ date: p.date, label: '$100 in', color: '#8B5CF6' });
       h100Found = true;
     }
     if (!h200Found && p.invested >= 200) {
-      milestones.push({ date: p.date, label: '$200 in', color: '#D8C27A' });
+      milestones.push({ date: p.date, label: '$200 in', color: '#FBBF24' });
       h200Found = true;
     }
     // ATH only when it's a past peak (not the current/last week — trivially ATH while growing)
     if (p.value === maxVal && i < totalSeries.length - 1) {
-      milestones.push({ date: p.date, label: 'ATH', color: '#D8C27A' });
+      milestones.push({ date: p.date, label: 'ATH', color: '#FBBF24' });
     }
   });
   return milestones;
@@ -1115,8 +1247,8 @@ function renderCharts(chart) {
   const milestones  = computeMilestones(totalSeries);
   const totalCanvas = document.getElementById('chart-total');
   const totalSeriesList = () => [
-    { points: totalSeries.map((p) => ({ x: p.date, y: p.invested })), color: '#8FADC9', dashed: true, width: 1.5 },
-    { points: totalSeries.map((p) => ({ x: p.date, y: p.value })), color: '#F2A65A', fill: true, width: 2.4 },
+    { points: totalSeries.map((p) => ({ x: p.date, y: p.invested })), color: '#9BA3BE', dashed: true, width: 1.5 },
+    { points: totalSeries.map((p) => ({ x: p.date, y: p.value })), color: '#8B5CF6', fill: true, width: 2.4 },
   ];
   const totalBars = totalSeries.map((p) => ({ x: p.date, y: p.weeklyAmount || 0 }));
   const drawTotal = (hoverIndex) => drawLineChart(totalCanvas, totalSeriesList(), { yFormatter: (v) => '$' + v.toFixed(0), hoverIndex, bars: totalBars, milestones });
@@ -1124,40 +1256,40 @@ function renderCharts(chart) {
   makeChartHoverable(totalCanvas, drawTotal, totalSeries, (i) => {
     const p = totalSeries[i];
     return `<div class="tt-date">${fmtDateFull(p.date)}</div>
-      <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Invested ${fmtUSD(p.invested)}</div>
-      <div class="tt-row"><span class="tt-dot" style="background:#F2A65A"></span>Value ${fmtUSD(p.value)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#9BA3BE"></span>Invested ${fmtUSD(p.invested)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#8B5CF6"></span>Value ${fmtUSD(p.value)}</div>
       <div class="tt-pl ${p.pl >= 0 ? 'pos' : 'neg'}">P&amp;L ${fmtUSD(p.pl)}</div>
-      ${p.weeklyAmount ? `<div class="tt-pl" style="color:rgba(242,166,90,0.7)">Bought ${fmtUSD(p.weeklyAmount)}</div>` : ''}`;
+      ${p.weeklyAmount ? `<div class="tt-pl" style="color:rgba(139,92,246,0.7)">Bought ${fmtUSD(p.weeklyAmount)}</div>` : ''}`;
   });
 
   const btcSeries = chart.btcSeries.filter((p) => p.date);
   const btcCanvas = document.getElementById('chart-btc');
   const btcSeriesList = () => [
-    { points: btcSeries.map((p) => ({ x: p.date, y: p.avgCost })), color: '#8FADC9', dashed: true, width: 1.3 },
-    { points: btcSeries.map((p) => ({ x: p.date, y: p.weeklyPrice })), color: '#F2A65A', width: 2 },
+    { points: btcSeries.map((p) => ({ x: p.date, y: p.avgCost })), color: '#9BA3BE', dashed: true, width: 1.3 },
+    { points: btcSeries.map((p) => ({ x: p.date, y: p.weeklyPrice })), color: '#8B5CF6', width: 2 },
   ];
   const drawBtc = (hoverIndex) => drawLineChart(btcCanvas, btcSeriesList(), { padL: 62, yFormatter: (v) => '$' + (v / 1000).toFixed(0) + 'k', hoverIndex });
   drawBtc(null);
   makeChartHoverable(btcCanvas, drawBtc, btcSeries, (i) => {
     const p = btcSeries[i];
     return `<div class="tt-date">${fmtDateFull(p.date)}</div>
-      <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Avg cost ${fmtUSD(p.avgCost)}</div>
-      <div class="tt-row"><span class="tt-dot" style="background:#F2A65A"></span>Market ${fmtUSD(p.weeklyPrice)}</div>`;
+      <div class="tt-row"><span class="tt-dot" style="background:#9BA3BE"></span>Avg cost ${fmtUSD(p.avgCost)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#8B5CF6"></span>Market ${fmtUSD(p.weeklyPrice)}</div>`;
   });
 
   const xautSeries = chart.xautSeries.filter((p) => p.date);
   const xautCanvas = document.getElementById('chart-xaut');
   const xautSeriesList = () => [
-    { points: xautSeries.map((p) => ({ x: p.date, y: p.avgCost })), color: '#8FADC9', dashed: true, width: 1.3 },
-    { points: xautSeries.map((p) => ({ x: p.date, y: p.weeklyPrice })), color: '#D8C27A', width: 2 },
+    { points: xautSeries.map((p) => ({ x: p.date, y: p.avgCost })), color: '#9BA3BE', dashed: true, width: 1.3 },
+    { points: xautSeries.map((p) => ({ x: p.date, y: p.weeklyPrice })), color: '#FBBF24', width: 2 },
   ];
   const drawXaut = (hoverIndex) => drawLineChart(xautCanvas, xautSeriesList(), { padL: 56, yFormatter: (v) => '$' + v.toFixed(0), hoverIndex });
   drawXaut(null);
   makeChartHoverable(xautCanvas, drawXaut, xautSeries, (i) => {
     const p = xautSeries[i];
     return `<div class="tt-date">${fmtDateFull(p.date)}</div>
-      <div class="tt-row"><span class="tt-dot" style="background:#8FADC9"></span>Avg cost ${fmtUSD(p.avgCost)}</div>
-      <div class="tt-row"><span class="tt-dot" style="background:#D8C27A"></span>Market ${fmtUSD(p.weeklyPrice)}</div>`;
+      <div class="tt-row"><span class="tt-dot" style="background:#9BA3BE"></span>Avg cost ${fmtUSD(p.avgCost)}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:#FBBF24"></span>Market ${fmtUSD(p.weeklyPrice)}</div>`;
   });
 }
 
@@ -1184,9 +1316,9 @@ function drawSparkline(canvas, riskHistory) {
 
   // zone bands (faint background): accumulate / hold / sell
   const bands = [
-    { from: 0,    to: 0.40, color: 'rgba(127,217,174,0.06)' },
-    { from: 0.40, to: 0.60, color: 'rgba(242,166,90,0.06)'  },
-    { from: 0.60, to: 1.00, color: 'rgba(240,120,138,0.07)' },
+    { from: 0,    to: 0.40, color: 'rgba(52,211,153,0.06)' },
+    { from: 0.40, to: 0.60, color: 'rgba(139,92,246,0.06)'  },
+    { from: 0.60, to: 1.00, color: 'rgba(251,113,133,0.07)' },
   ];
   bands.forEach((b) => {
     ctx.fillStyle = b.color;
@@ -1196,7 +1328,7 @@ function drawSparkline(canvas, riskHistory) {
   // threshold lines at 0.40 and 0.60
   [0.40, 0.60].forEach((thresh) => {
     const ty = yOf(thresh);
-    ctx.strokeStyle = 'rgba(178,208,255,0.12)';
+    ctx.strokeStyle = 'rgba(155,163,190,0.12)';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
     ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + plotW, ty); ctx.stroke();
@@ -1209,15 +1341,15 @@ function drawSparkline(canvas, riskHistory) {
     const x = xOf(i), y = yOf(p.risk);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = 'rgba(233,242,251,0.5)';
+  ctx.strokeStyle = 'rgba(241,243,250,0.5)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
   // dots colored by zone
   function zoneColor(v) {
-    if (v < 0.40) return '#7FD9AE';
-    if (v < 0.60) return '#F2A65A';
-    return '#F0788A';
+    if (v < 0.40) return '#34D399';
+    if (v < 0.60) return '#8B5CF6';
+    return '#FB7185';
   }
   riskHistory.forEach((p, i) => {
     const x = xOf(i), y = yOf(p.risk);
@@ -1240,6 +1372,112 @@ function drawSparkline(canvas, riskHistory) {
   ctx.fillText('1', padL + plotW + 4, padT + 7);
   ctx.fillText('0', padL + plotW + 4, padT + plotH + 1);
 }
+
+/* =========================================================================
+   ASSET DETAIL MODAL (SHT.02 card click-through)
+   ========================================================================= */
+function openAssetModal(asset) {
+  const d = window.__assetDetails && window.__assetDetails[asset];
+  if (!d) return;
+  const { summary: a, latest, ruleSet, zone, daysSinceLastBuy, riskHistory, trades: assetTrades, buyCount, firstBuyDate } = d;
+  const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
+  const weeksActive = firstBuyDate ? Math.max(1, Math.ceil((new Date() - firstBuyDate) / (7 * 86400000))) : null;
+  const avgPerWeek = weeksActive && a.invested != null ? a.invested / weeksActive : null;
+
+  const zoneRowsHtml = ruleSet && ruleSet.rules.length
+    ? ruleSet.rules.map((r) => `
+        <tr class="${zone && r === zone ? 'zone-current' : ''}">
+          <td>${r.riskScore}</td><td>${r.zone}</td><td>${r.size || '—'}</td><td>${r.action || '—'}</td>
+        </tr>`).join('')
+    : '';
+
+  const logRowsHtml = assetTrades.slice().sort((x, y) => (y.date && x.date ? y.date - x.date : 0)).map((t) => `
+    <tr>
+      <td>${t.week}</td><td>${fmtDateFull(t.date)}</td><td>${t.type || '—'}</td>
+      <td>${fmtUSD(t.price)}</td><td>${fmtUSD(t.amount)}</td><td>${fmtUSD(t.avgCost)}</td>
+      <td>${fmtUSD(t.marketValue)}</td>
+      <td class="${(t.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg'}">${fmtUSD(t.unrealizedPL)}</td>
+      <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
+    </tr>`).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">${a.asset}</span>
+      ${zone ? `<span class="zone-badge">Risk ${latest.risk.toFixed(2)} → ${zone.zone}</span>` : ''}
+      <span class="modal-mv">${fmtUSD(a.marketValue)}</span>
+      <span class="modal-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Invested</span><span class="v">${fmtUSD(a.invested)}</span></div>
+      <div><span class="k">Units held</span><span class="v">${a.units != null ? a.units.toFixed(8) : '—'}</span></div>
+      <div><span class="k">Avg cost</span><span class="v">${fmtUSD(a.avgCost)}</span></div>
+      <div><span class="k">Market price</span><span class="v">${fmtUSD(a.currentPrice)}</span></div>
+      <div><span class="k">Allocation</span><span class="v">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '%' : '—'}</span></div>
+      <div><span class="k">Last buy</span><span class="v">${daysSinceLastBuy != null ? daysSinceLastBuy + 'd ago' : '—'}</span></div>
+      <div><span class="k">Buys logged</span><span class="v">${buyCount}</span></div>
+      <div><span class="k">Avg / week</span><span class="v">${avgPerWeek != null ? fmtUSD(avgPerWeek) : '—'}</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Risk-score history</h3>
+      <div class="modal-chart-box">
+        ${riskHistory.length ? `<canvas id="modal-risk-chart"></canvas>` : `<div class="modal-empty">No risk history logged for ${a.asset} yet.</div>`}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>DCA zone rules — ${a.asset}</h3>
+      ${zoneRowsHtml
+        ? `<table class="zone-table">
+            <thead><tr><th>Risk score</th><th>Zone</th><th>Size</th><th>Action</th></tr></thead>
+            <tbody>${zoneRowsHtml}</tbody>
+          </table>`
+        : `<div class="modal-empty">No zone rules configured for ${a.asset}.</div>`}
+    </div>
+
+    <div class="modal-section">
+      <h3>Trade history — ${assetTrades.length} entries</h3>
+      ${logRowsHtml
+        ? `<div class="modal-log-wrap"><table>
+            <thead><tr>
+              <th>Wk</th><th>Date</th><th>Type</th><th>Price</th><th>Amount</th>
+              <th>Avg cost</th><th>Mkt value</th><th>Unreal. P&amp;L</th><th>Risk</th>
+            </tr></thead>
+            <tbody>${logRowsHtml}</tbody>
+          </table></div>`
+        : `<div class="modal-empty">No trades logged for ${a.asset} yet.</div>`}
+    </div>
+  `;
+
+  const overlay = document.getElementById('asset-modal');
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  if (riskHistory.length) {
+    const canvas = document.getElementById('modal-risk-chart');
+    // canvas needs real layout dimensions to draw into; wait a frame after unhiding
+    requestAnimationFrame(() => {
+      drawLineChart(canvas, [
+        { points: riskHistory.map((p) => ({ x: p.date, y: p.risk })), color: '#8B5CF6', width: 2, fill: true },
+      ], { yFormatter: (v) => v.toFixed(2), padL: 34 });
+    });
+  }
+
+  document.getElementById('modal-close').focus();
+}
+
+function closeAssetModal() {
+  document.getElementById('asset-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+document.getElementById('modal-close').addEventListener('click', closeAssetModal);
+document.getElementById('asset-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'asset-modal') closeAssetModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('asset-modal').classList.contains('hidden')) closeAssetModal();
+});
 
 function render(data) {
   const { savings, summary, trades, rules, chart } = data;
@@ -1308,6 +1546,7 @@ function render(data) {
   const cardsEl = document.getElementById('asset-cards');
   const tradedAssets = summary.assets.map((a) => a.asset);
   const ghostAssets = ['XSPY', 'XQQQ'].filter((sym) => !tradedAssets.includes(sym));
+  window.__assetDetails = {};
   let cardsHtml = '';
   summary.assets.forEach((a) => {
     const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
@@ -1315,8 +1554,19 @@ function render(data) {
     const ruleSet = a.asset === 'BTC' ? rules.btc : a.asset === 'XAUT' ? rules.xaut : null;
     const zone = ruleSet && latest ? currentZone(ruleSet.rules, latest.risk) : null;
     const days = daysSince(lastBuyByAsset[a.asset]);
+    const assetTrades = trades.filter((t) => t.asset === a.asset);
+    const buyTrades = assetTrades.filter((t) => t.type && /buy/i.test(t.type));
+
+    // stash everything the modal needs, keyed by asset symbol
+    window.__assetDetails[a.asset] = {
+      asset: a.asset, summary: a, latest, ruleSet, zone,
+      daysSinceLastBuy: days, riskHistory: riskByAsset[a.asset] || [],
+      trades: assetTrades, buyCount: buyTrades.length,
+      firstBuyDate: buyTrades.length ? buyTrades.reduce((m, t) => (!m || (t.date && t.date < m)) ? t.date : m, null) : null,
+    };
+
     cardsHtml += `
-      <div class="card">
+      <div class="card" tabindex="0" role="button" aria-haspopup="dialog" onclick="openAssetModal('${a.asset}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAssetModal('${a.asset}');}">
         <span class="alloc">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '% alloc' : ''}</span>
         <div class="asset-name">${a.asset}</div>
         <div class="mv">${fmtUSD(a.marketValue)}</div>
@@ -1332,6 +1582,7 @@ function render(data) {
           <canvas class="sparkline-canvas" id="spark-${a.asset}"></canvas>
         </div>
         ${zone ? `<div class="zone-badge">Risk ${latest.risk.toFixed(2)} → ${zone.zone}</div>` : ''}
+        <div class="card-expand-hint">View details →</div>
       </div>`;
   });
   ghostAssets.forEach((sym) => {

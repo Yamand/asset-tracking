@@ -878,7 +878,10 @@ function parseRuleBlock(rows, startMatcher) {
   const rules = [];
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const score = textOf(rows[i], 0);
+    // stop on blank row OR on a row that doesn't look like a risk score
+    // (catches the XAUT label row bleeding into the BTC block)
     if (!score) break;
+    if (!/^[<>0-9]/.test(score.trim())) break;
     rules.push({ riskScore: score, zone: textOf(rows[i], 1), size: textOf(rows[i], 2), action: textOf(rows[i], 3) });
   }
   return { label, rules };

@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Balance Sheet — Personal Capital Drawing</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238B5CF6'/%3E%3Cstop offset='1' stop-color='%2322D3EE'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230A0B14'/%3E%3Crect x='3' y='3' width='58' height='58' rx='12' fill='none' stroke='url(%23g)' stroke-width='2'/%3E%3Cpath d='M14 40 L26 26 L36 34 L50 16' stroke='url(%23g)' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -411,6 +412,19 @@
   .card[role="button"]:hover .card-expand-hint,
   .card[role="button"]:focus-visible .card-expand-hint{opacity:1;transform:translateY(0);color:var(--accent2);}
 
+  .fin-panel[role="button"]{
+    cursor:pointer;transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .fin-panel[role="button"]:hover{transform:translateY(-2px);border-color:rgba(139,92,246,0.4) !important;box-shadow:0 12px 40px rgba(0,0,0,0.4), var(--glow);}
+  .fin-panel[role="button"]:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;}
+  .fin-panel[role="button"] .card-expand-hint{
+    margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;
+    color:var(--ink-faint);opacity:0;transform:translateY(-2px);
+    transition:opacity .18s ease, transform .18s ease, color .18s ease;
+  }
+  .fin-panel[role="button"]:hover .card-expand-hint,
+  .fin-panel[role="button"]:focus-visible .card-expand-hint{opacity:1;transform:translateY(0);color:var(--accent2);}
+
   /* ---------- asset detail modal ---------- */
   .modal-overlay{
     position:fixed;inset:0;z-index:200;
@@ -509,8 +523,8 @@
     </div>
 
     <div class="fin-health-row">
-      <div class="fin-panel" id="debt-panel"></div>
-      <div class="fin-panel" id="savings-panel"></div>
+      <div class="fin-panel" id="debt-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      <div class="fin-panel" id="savings-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
     </div>
 
     <div class="sheet" id="sheet-foundation">
@@ -1163,7 +1177,13 @@ function renderDebtCountdown() {
   const pct = Math.min(100, Math.max(0, (elapsed / totalSpan) * 100));
   const daysLeft = Math.max(0, Math.ceil((DEBT_FREE_DATE - now) / 86400000));
   const monthsLeft = Math.max(0, Math.ceil(daysLeft / 30.44));
-  const totalPaid  = Math.min(12, Math.floor(elapsed / (30.44 * 86400000))) * MONTHLY_DEBT;
+  const monthsPaid = Math.min(12, Math.floor(elapsed / (30.44 * 86400000)));
+  const totalPaid  = monthsPaid * MONTHLY_DEBT;
+  const totalDebt  = 12 * MONTHLY_DEBT;
+  const remaining  = Math.max(0, totalDebt - totalPaid);
+
+  window.__debtDetails = { now, pct, daysLeft, monthsLeft, monthsPaid, totalPaid, totalDebt, remaining };
+
   panel.innerHTML = `
     <div class="fp-label">Debt Freedom Countdown</div>
     <div class="fp-headline">${daysLeft} days</div>
@@ -1172,7 +1192,8 @@ function renderDebtCountdown() {
     <div class="fp-ticks"><span>Jan 2026</span><span>${pct.toFixed(0)}%</span><span>Dec 2026</span></div>
     <div class="fp-sub" style="margin-top:8px;">
       Post-payoff surplus: <b style="color:var(--gain)">+$${MONTHLY_DEBT}/mo freed</b> from Jan 2027
-    </div>`;
+    </div>
+    <div class="card-expand-hint">View details →</div>`;
 }
 
 /* =========================================================================
@@ -1191,7 +1212,17 @@ function renderSavingsGauge(dcaPace) {
   // post-debt projection
   const fixedPost  = MONTHLY_RENT;
   const postDCA    = monthlyDCA + MONTHLY_DEBT; // redirect debt payment to savings
+  const postDiscretionary = Math.max(0, MONTHLY_INCOME - fixedPost - postDCA);
   const postSaving = ((postDCA / MONTHLY_INCOME) * 100).toFixed(1);
+  const pFixedPost = (fixedPost / MONTHLY_INCOME * 100).toFixed(1);
+  const pDCAPost   = (postDCA / MONTHLY_INCOME * 100).toFixed(1);
+  const pFreePost  = (postDiscretionary / MONTHLY_INCOME * 100).toFixed(1);
+
+  window.__savingsDetails = {
+    monthlyDCA, fixedNow, discretionary, pFixed, pDCA, pFree, savingsRate,
+    fixedPost, postDCA, postDiscretionary, postSaving, pFixedPost, pDCAPost, pFreePost,
+  };
+
   panel.innerHTML = `
     <div class="fp-label">Budget Allocation (Plan)</div>
     <div class="fp-headline">${savingsRate}% <span style="font-size:13px;font-weight:400;color:var(--ink-dim)">DCA rate</span></div>
@@ -1209,7 +1240,8 @@ function renderSavingsGauge(dcaPace) {
     <div class="fp-sub" style="margin-top:8px;">
       Post-Jan 2027: <b style="color:var(--gain)">${postSaving}% savings rate</b>
       if debt payment redirected to DCA
-    </div>`;
+    </div>
+    <div class="card-expand-hint">View details →</div>`;
 }
 
 /* =========================================================================
@@ -1376,6 +1408,17 @@ function drawSparkline(canvas, riskHistory) {
 /* =========================================================================
    ASSET DETAIL MODAL (SHT.02 card click-through)
    ========================================================================= */
+function showModal() {
+  const overlay = document.getElementById('asset-modal');
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('modal-close').focus();
+}
+function closeAssetModal() {
+  document.getElementById('asset-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
 function openAssetModal(asset) {
   const d = window.__assetDetails && window.__assetDetails[asset];
   if (!d) return;
@@ -1450,9 +1493,7 @@ function openAssetModal(asset) {
     </div>
   `;
 
-  const overlay = document.getElementById('asset-modal');
-  overlay.classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
+  showModal();
 
   if (riskHistory.length) {
     const canvas = document.getElementById('modal-risk-chart');
@@ -1463,14 +1504,142 @@ function openAssetModal(asset) {
       ], { yFormatter: (v) => v.toFixed(2), padL: 34 });
     });
   }
-
-  document.getElementById('modal-close').focus();
 }
 
-function closeAssetModal() {
-  document.getElementById('asset-modal').classList.add('hidden');
-  document.body.style.overflow = '';
+/* =========================================================================
+   DEBT DETAIL MODAL
+   ========================================================================= */
+function openDebtModal() {
+  const d = window.__debtDetails;
+  if (!d) return;
+  const { pct, daysLeft, monthsLeft, monthsPaid, totalPaid, totalDebt, remaining } = d;
+
+  // month-by-month payoff timeline, Jan 2026 → Dec 2026
+  const timeline = [];
+  for (let m = 0; m < 12; m++) {
+    const date = new Date(2026, m, 1);
+    const cumPaid = Math.min(m + 1, 12) * MONTHLY_DEBT;
+    timeline.push({ date, paid: cumPaid, remaining: totalDebt - cumPaid });
+  }
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Debt Freedom</span>
+      <span class="modal-mv">${daysLeft} days</span>
+      <span class="modal-pl">~${monthsLeft} month${monthsLeft !== 1 ? 's' : ''} left</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Plan start</span><span class="v">Jan 1, 2026</span></div>
+      <div><span class="k">Target</span><span class="v">Dec 31, 2026</span></div>
+      <div><span class="k">Progress</span><span class="v">${pct.toFixed(1)}%</span></div>
+      <div><span class="k">Monthly payment</span><span class="v">${fmtUSD(MONTHLY_DEBT, 0)}</span></div>
+      <div><span class="k">Months paid</span><span class="v">${monthsPaid} / 12</span></div>
+      <div><span class="k">Total paid</span><span class="v">${fmtUSD(totalPaid, 0)}</span></div>
+      <div><span class="k">Remaining</span><span class="v">${fmtUSD(remaining, 0)}</span></div>
+      <div><span class="k">Freed from Jan '27</span><span class="v" style="color:var(--gain)">+${fmtUSD(MONTHLY_DEBT, 0)}/mo</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Payoff timeline</h3>
+      <div class="modal-chart-box"><canvas id="modal-debt-chart"></canvas></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Month-by-month</h3>
+      <div class="modal-log-wrap"><table>
+        <thead><tr><th>Month</th><th>Paid to date</th><th>Remaining</th></tr></thead>
+        <tbody>${timeline.map((t) => `
+          <tr>
+            <td>${t.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</td>
+            <td>${fmtUSD(t.paid, 0)}</td>
+            <td>${fmtUSD(t.remaining, 0)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+
+  showModal();
+  requestAnimationFrame(() => {
+    const canvas = document.getElementById('modal-debt-chart');
+    drawLineChart(canvas, [
+      { points: timeline.map((t) => ({ x: t.date, y: t.remaining })), color: '#FB7185', width: 2, fill: true },
+      { points: timeline.map((t) => ({ x: t.date, y: t.paid })), color: '#34D399', dashed: true, width: 1.5 },
+    ], { yFormatter: (v) => '$' + v.toFixed(0), padL: 46 });
+  });
 }
+
+/* =========================================================================
+   SAVINGS DETAIL MODAL
+   ========================================================================= */
+function openSavingsModal() {
+  const d = window.__savingsDetails;
+  if (!d) return;
+  const { monthlyDCA, fixedNow, discretionary, pFixed, pDCA, pFree, savingsRate,
+          fixedPost, postDCA, postDiscretionary, postSaving, pFixedPost, pDCAPost, pFreePost } = d;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Budget Allocation</span>
+      <span class="modal-mv">${savingsRate}%</span>
+      <span class="modal-pl">current DCA rate</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Monthly income</span><span class="v">${fmtUSD(MONTHLY_INCOME, 0)}</span></div>
+      <div><span class="k">Fixed costs</span><span class="v">${fmtUSD(fixedNow, 0)}</span></div>
+      <div><span class="k">DCA / mo</span><span class="v">${fmtUSD(monthlyDCA, 0)}</span></div>
+      <div><span class="k">Discretionary</span><span class="v">${fmtUSD(discretionary, 0)}</span></div>
+      <div><span class="k">Post-debt DCA</span><span class="v">${fmtUSD(postDCA, 0)}</span></div>
+      <div><span class="k">Post-debt rate</span><span class="v" style="color:var(--gain)">${postSaving}%</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Now — through Dec 2026</h3>
+      <div class="fp-bar">
+        <div class="fp-seg seg-fixed" style="width:${pFixed}%"></div>
+        <div class="fp-seg seg-dca"   style="width:${pDCA}%"></div>
+        <div class="fp-seg seg-free"  style="width:${pFree}%"></div>
+      </div>
+      <div class="fp-bar-labels">
+        <span style="color:var(--ink-faint)">Fixed ${pFixed}%</span>
+        <span style="color:var(--accent)">DCA ${pDCA}%</span>
+        <span style="color:var(--gain)">Disc ${pFree}%</span>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Post-payoff — from Jan 2027</h3>
+      <div class="fp-bar">
+        <div class="fp-seg seg-fixed" style="width:${pFixedPost}%"></div>
+        <div class="fp-seg seg-dca"   style="width:${pDCAPost}%"></div>
+        <div class="fp-seg seg-free"  style="width:${pFreePost}%"></div>
+      </div>
+      <div class="fp-bar-labels">
+        <span style="color:var(--ink-faint)">Fixed ${pFixedPost}%</span>
+        <span style="color:var(--accent)">DCA ${pDCAPost}%</span>
+        <span style="color:var(--gain)">Disc ${pFreePost}%</span>
+      </div>
+      <div class="modal-empty" style="padding-top:12px;">
+        Freeing up the ${fmtUSD(MONTHLY_DEBT, 0)}/mo debt payment and redirecting it to DCA lifts
+        the savings rate from ${savingsRate}% to <b style="color:var(--gain)">${postSaving}%</b>.
+      </div>
+    </div>
+  `;
+
+  showModal();
+}
+
+document.getElementById('debt-panel').addEventListener('click', openDebtModal);
+document.getElementById('debt-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDebtModal(); }
+});
+document.getElementById('savings-panel').addEventListener('click', openSavingsModal);
+document.getElementById('savings-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSavingsModal(); }
+});
+
 document.getElementById('modal-close').addEventListener('click', closeAssetModal);
 document.getElementById('asset-modal').addEventListener('click', (e) => {
   if (e.target.id === 'asset-modal') closeAssetModal();

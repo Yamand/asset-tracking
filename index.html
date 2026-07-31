@@ -333,7 +333,8 @@
   .neg{color:var(--loss);}
 
   /* ---------- debt countdown + savings gauge row ---------- */
-  .fin-health-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px;}
+  .fin-health-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:26px;}
+  @media (max-width:900px){.fin-health-row{grid-template-columns:1fr 1fr;}}
   @media (max-width:640px){.fin-health-row{grid-template-columns:1fr;}}
 
   .fin-panel{border:1px solid var(--hair-bright);background:var(--bg-panel);padding:14px 16px;}
@@ -488,6 +489,29 @@
   .modal-log-wrap th{position:sticky;top:0;background:var(--bg-panel-2);backdrop-filter:blur(10px);color:var(--ink-faint);text-transform:uppercase;font-size:10px;font-weight:500;}
   .modal-log-wrap td:first-child, .modal-log-wrap th:first-child{text-align:left;}
 
+  /* ---------- payoff strip (month progress bar row) ---------- */
+  .payoff-strip{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;}
+  .ps-month{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    font-family:var(--mono);
+  }
+  .ps-month .ps-bar{
+    width:100%;height:34px;border-radius:5px;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--hair);
+    position:relative;overflow:hidden;
+  }
+  .ps-month.done .ps-bar{background:linear-gradient(180deg,var(--gain),#0F9D6E);border-color:rgba(52,211,153,0.4);}
+  .ps-month.current .ps-bar{background:linear-gradient(180deg,var(--accent2),#0E7490);border-color:rgba(34,211,238,0.5);box-shadow:0 0 12px rgba(34,211,238,0.35);}
+  .ps-month.upcoming .ps-bar{background:rgba(251,113,133,0.08);border-color:rgba(251,113,133,0.25);}
+  .ps-month .ps-lbl{font-size:9.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.03em;}
+  .ps-month.done .ps-lbl{color:var(--gain);}
+  .ps-month.current .ps-lbl{color:var(--accent2);}
+  .payoff-legend{display:flex;gap:16px;margin-top:12px;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);flex-wrap:wrap;}
+  .payoff-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .payoff-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  @media (max-width:520px){.payoff-strip{grid-template-columns:repeat(6,1fr);row-gap:12px;}}
+
 </style>
 </head>
 <body>
@@ -525,6 +549,7 @@
     <div class="fin-health-row">
       <div class="fin-panel" id="debt-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       <div class="fin-panel" id="savings-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      <div class="fin-panel" id="coastfi-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
     </div>
 
     <div class="sheet" id="sheet-foundation">
@@ -646,6 +671,12 @@ const MONTHLY_RENT     = 0;
 const MONTHLY_DEBT     = 300;   // car debt — clears Dec 31 2026
 const DEBT_FREE_DATE   = new Date(2026, 11, 31);  // Dec 31 2026
 const DEBT_PLAN_START  = new Date(2026, 0, 1);    // Jan 1 2026 — progress reference
+
+// ---- coast FI constants ----
+const COAST_FI_ANNUAL_SPEND  = 10000;                                          // target Cambodia lifestyle spend, $/yr
+const COAST_FI_WITHDRAW_RATE = 0.04;                                           // 4% rule
+const COAST_FI_TARGET        = COAST_FI_ANNUAL_SPEND / COAST_FI_WITHDRAW_RATE; // $375,000
+const COAST_FI_RETURN_RATE   = 0.08;                                           // assumed blended annual return, conservative
 
 /* =========================================================================
    GVIZ FETCH (JSONP — works for sheets shared "Anyone with the link: Viewer")
@@ -1248,6 +1279,52 @@ function renderSavingsGauge(dcaPace) {
 }
 
 /* =========================================================================
+   COAST FI PROJECTION
+   ========================================================================= */
+function renderCoastFI(currentPV) {
+  const panel = document.getElementById('coastfi-panel');
+  if (!panel) return;
+
+  const pv = Math.max(0, currentPV || 0);
+  const fv = COAST_FI_TARGET;
+  const r  = COAST_FI_RETURN_RATE;
+  const now = new Date();
+
+  let yearsToTarget = null;
+  let coastDate = null;
+  if (pv > 0 && pv < fv) {
+    yearsToTarget = Math.log(fv / pv) / Math.log(1 + r);
+    coastDate = new Date(now);
+    coastDate.setDate(coastDate.getDate() + Math.round(yearsToTarget * 365.25));
+  } else if (pv >= fv) {
+    yearsToTarget = 0;
+  }
+
+  const pctToTarget = Math.min(100, (pv / fv) * 100);
+  const yearsLabel = yearsToTarget == null
+    ? '—'
+    : yearsToTarget <= 0
+      ? 'Reached'
+      : `${yearsToTarget.toFixed(1)} yrs`;
+  const dateLabel = coastDate
+    ? coastDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+    : (pv >= fv ? 'Now' : '—');
+
+  window.__coastFiDetails = { pv, fv, r, yearsToTarget, coastDate, pctToTarget, now };
+
+  panel.innerHTML = `
+    <div class="fp-label">Coast FI Projection</div>
+    <div class="fp-headline">${yearsLabel}</div>
+    <div class="fp-sub">Target <b>${fmtUSD(fv, 0)}</b> · est. <b>${dateLabel}</b> at ${(r * 100).toFixed(0)}%/yr</div>
+    <div class="fp-progress"><div class="fp-fill" style="width:${pctToTarget.toFixed(1)}%"></div></div>
+    <div class="fp-ticks"><span>${fmtUSD(pv, 0)}</span><span>${pctToTarget.toFixed(1)}%</span><span>${fmtUSD(fv, 0)}</span></div>
+    <div class="fp-sub" style="margin-top:8px;">
+      Based on <b>$${COAST_FI_ANNUAL_SPEND.toLocaleString()}/yr</b> spend at a ${(COAST_FI_WITHDRAW_RATE * 100).toFixed(0)}% withdrawal rate
+    </div>
+    <div class="card-expand-hint">View details →</div>`;
+}
+
+/* =========================================================================
    MILESTONE DETECTOR (#8)
    ========================================================================= */
 function computeMilestones(totalSeries) {
@@ -1545,7 +1622,18 @@ function openDebtModal() {
 
     <div class="modal-section">
       <h3>Payoff timeline</h3>
-      <div class="modal-chart-box"><canvas id="modal-debt-chart"></canvas></div>
+      <div class="payoff-strip">
+        ${timeline.map((t, i) => {
+          const state = i < monthsPaid ? 'done' : (i === monthsPaid ? 'current' : 'upcoming');
+          const label = t.date.toLocaleDateString(undefined, { month: 'short' });
+          return `<div class="ps-month ${state}"><div class="ps-bar"></div><span class="ps-lbl">${label}</span></div>`;
+        }).join('')}
+      </div>
+      <div class="payoff-legend">
+        <span><i style="background:var(--gain)"></i>Paid (${monthsPaid})</span>
+        <span><i style="background:var(--accent2)"></i>Current month</span>
+        <span><i style="background:rgba(251,113,133,0.4)"></i>Upcoming (${12 - monthsPaid - (monthsPaid < 12 ? 1 : 0)})</span>
+      </div>
     </div>
 
     <div class="modal-section">
@@ -1564,13 +1652,6 @@ function openDebtModal() {
   `;
 
   showModal();
-  requestAnimationFrame(() => {
-    const canvas = document.getElementById('modal-debt-chart');
-    drawLineChart(canvas, [
-      { points: timeline.map((t) => ({ x: t.date, y: t.remaining })), color: '#FB7185', width: 2, fill: true },
-      { points: timeline.map((t) => ({ x: t.date, y: t.paid })), color: '#34D399', dashed: true, width: 1.5 },
-    ], { yFormatter: (v) => '$' + v.toFixed(0), padL: 46 });
-  });
 }
 
 /* =========================================================================
@@ -1634,6 +1715,89 @@ function openSavingsModal() {
   showModal();
 }
 
+/* =========================================================================
+   COAST FI DETAIL MODAL
+   ========================================================================= */
+function openCoastFIModal() {
+  const d = window.__coastFiDetails;
+  if (!d) return;
+  const { pv, fv, r, yearsToTarget, coastDate, pctToTarget } = d;
+
+  const reached = pv >= fv;
+  const yearsLabel = reached ? 'Reached' : `${yearsToTarget.toFixed(1)} yrs`;
+  const dateLabel = reached ? 'Now' : (coastDate
+    ? coastDate.toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })
+    : '—');
+
+  // growth trajectory rows, year by year, PV compounding at r (no further contributions)
+  const rows = [];
+  const maxYears = Math.min(40, reached ? 0 : Math.ceil(yearsToTarget) + 1);
+  for (let y = 0; y <= maxYears; y++) {
+    const val = pv * Math.pow(1 + r, y);
+    rows.push({ y, val, hit: val >= fv });
+  }
+
+  const rowsHTML = rows.map((row) => `
+    <tr>
+      <td>${row.y === 0 ? 'Today' : `+${row.y}y`}</td>
+      <td>${fmtUSD(row.val)}</td>
+      <td>${row.hit ? '<span style="color:var(--gain)">✓ target reached</span>' : ((row.val / fv * 100).toFixed(0) + '%')}</td>
+    </tr>`).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Coast FI</span>
+      <span class="modal-mv">${yearsLabel}</span>
+      <span class="modal-pl">est. ${dateLabel}</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Current net worth</span><span class="v">${fmtUSD(pv)}</span></div>
+      <div><span class="k">Coast FI target</span><span class="v">${fmtUSD(fv, 0)}</span></div>
+      <div><span class="k">Progress to target</span><span class="v">${pctToTarget.toFixed(1)}%</span></div>
+      <div><span class="k">Assumed return</span><span class="v">${(r * 100).toFixed(0)}%/yr</span></div>
+      <div><span class="k">Target spend</span><span class="v">${fmtUSD(COAST_FI_ANNUAL_SPEND, 0)}/yr</span></div>
+      <div><span class="k">Withdrawal rate</span><span class="v">${(COAST_FI_WITHDRAW_RATE * 100).toFixed(0)}% (4% rule)</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>How the target is set</h3>
+      <div class="modal-empty" style="padding-top:0;">
+        Target = annual spend ÷ withdrawal rate = ${fmtUSD(COAST_FI_ANNUAL_SPEND, 0)} ÷ ${(COAST_FI_WITHDRAW_RATE * 100).toFixed(0)}%
+        = <b style="color:var(--ink)">${fmtUSD(fv, 0)}</b>. This is a Cambodia-lifestyle estimate covering rent,
+        living costs, healthcare buffer, and travel — update <code>COAST_FI_ANNUAL_SPEND</code> in the script if your
+        target lifestyle changes.
+      </div>
+    </div>
+
+    ${reached ? `
+    <div class="modal-section">
+      <h3>Status</h3>
+      <div class="modal-empty" style="padding-top:0;">
+        Current holdings already exceed the Coast FI target at today's value. This assumes no further
+        withdrawals disturb the ${(r * 100).toFixed(0)}%/yr compounding — a live market check is still worth doing
+        before treating this as locked in.
+      </div>
+    </div>` : `
+    <div class="modal-section">
+      <h3>Projected growth — no further contributions</h3>
+      <div class="modal-log-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Projected value</th><th>Of target</th></tr></thead>
+          <tbody>${rowsHTML}</tbody>
+        </table>
+      </div>
+      <div class="modal-empty">
+        Assumes today's balance compounds at ${(r * 100).toFixed(0)}%/yr with zero further DCA contributions
+        — a pure "stop adding, let it ride" scenario. Continuing your current DCA pace would reach this
+        target sooner than shown here.
+      </div>
+    </div>`}
+  `;
+
+  showModal();
+}
+
 document.getElementById('debt-panel').addEventListener('click', openDebtModal);
 document.getElementById('debt-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDebtModal(); }
@@ -1641,6 +1805,10 @@ document.getElementById('debt-panel').addEventListener('keydown', (e) => {
 document.getElementById('savings-panel').addEventListener('click', openSavingsModal);
 document.getElementById('savings-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSavingsModal(); }
+});
+document.getElementById('coastfi-panel').addEventListener('click', openCoastFIModal);
+document.getElementById('coastfi-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCoastFIModal(); }
 });
 
 document.getElementById('modal-close').addEventListener('click', closeAssetModal);
@@ -1657,6 +1825,7 @@ function render(data) {
   // ---- debt countdown + savings gauge ----
   renderDebtCountdown();
   renderSavingsGauge(summary.dcaPace);
+  renderCoastFI(savings.totalNetSavings);
 
   // ---- title block ----
   const lastTrade = trades[trades.length - 1];

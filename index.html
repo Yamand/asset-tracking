@@ -1211,7 +1211,14 @@ function renderDebtCountdown() {
   const pct = Math.min(100, Math.max(0, (elapsed / totalSpan) * 100));
   const daysLeft = Math.max(0, Math.ceil((DEBT_FREE_DATE - now) / 86400000));
   const monthsLeft = Math.max(0, Math.ceil(daysLeft / 30.44));
-  const monthsPaid = Math.min(12, Math.floor(elapsed / (30.44 * 86400000)));
+  // calendar-accurate months paid — payment made on/after the 1st of each month,
+  // so on Aug 1 the Jan–Aug payments (8) are already in. Avoids drift from a
+  // fixed 30.44-day average, which underclocks by ~1 month by mid-year.
+  const monthsPaid = Math.min(12, Math.max(0,
+    (now.getFullYear() - DEBT_PLAN_START.getFullYear()) * 12
+    + (now.getMonth() - DEBT_PLAN_START.getMonth())
+    + (now.getDate() >= DEBT_PLAN_START.getDate() ? 1 : 0)
+  ));
   const totalPaid  = monthsPaid * MONTHLY_DEBT;
   const totalDebt  = 12 * MONTHLY_DEBT;
   const remaining  = Math.max(0, totalDebt - totalPaid);
@@ -1624,15 +1631,15 @@ function openDebtModal() {
       <h3>Payoff timeline</h3>
       <div class="payoff-strip">
         ${timeline.map((t, i) => {
-          const state = i < monthsPaid ? 'done' : (i === monthsPaid ? 'current' : 'upcoming');
+          const state = i < monthsPaid - 1 ? 'done' : (i === monthsPaid - 1 ? 'current' : 'upcoming');
           const label = t.date.toLocaleDateString(undefined, { month: 'short' });
           return `<div class="ps-month ${state}"><div class="ps-bar"></div><span class="ps-lbl">${label}</span></div>`;
         }).join('')}
       </div>
       <div class="payoff-legend">
-        <span><i style="background:var(--gain)"></i>Paid (${monthsPaid})</span>
+        <span><i style="background:var(--gain)"></i>Paid (${monthsPaid - 1})</span>
         <span><i style="background:var(--accent2)"></i>Current month</span>
-        <span><i style="background:rgba(251,113,133,0.4)"></i>Upcoming (${12 - monthsPaid - (monthsPaid < 12 ? 1 : 0)})</span>
+        <span><i style="background:rgba(251,113,133,0.4)"></i>Upcoming (${12 - monthsPaid})</span>
       </div>
     </div>
 

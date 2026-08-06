@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Balance Sheet — Personal Capital Drawing</title>
+<title>Personal Balance Sheet — Finance Dashboard</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238B5CF6'/%3E%3Cstop offset='1' stop-color='%2322D3EE'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230A0B14'/%3E%3Crect x='3' y='3' width='58' height='58' rx='12' fill='none' stroke='url(%23g)' stroke-width='2'/%3E%3Cpath d='M14 40 L26 26 L36 34 L50 16' stroke='url(%23g)' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -101,49 +101,92 @@
 
   /* ---------- hero ---------- */
   .hero{
-    padding:36px 8px 28px;
+    position:relative;
+    padding:44px 20px 34px;
     text-align:center;
-    border-bottom:1px dashed var(--hair-bright);
-    margin-bottom:30px;
+    margin-bottom:34px;
+    border:1px solid var(--hair-bright);
+    border-radius:20px;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(139,92,246,0.16), transparent 62%),
+      var(--bg-panel);
+    overflow:hidden;
+    animation:hero-in .7s cubic-bezier(.2,.7,.3,1) both;
+  }
+  .hero::before{
+    content:"";
+    position:absolute;
+    top:-40%;left:50%;
+    width:520px;height:320px;
+    transform:translateX(-50%);
+    background:radial-gradient(ellipse at center, rgba(34,211,238,0.20), transparent 70%);
+    pointer-events:none;
+    filter:blur(4px);
   }
   .hero .eyebrow{
+    position:relative;
     font-family:var(--mono);
     font-size:11px;
-    letter-spacing:.14em;
+    font-weight:600;
+    letter-spacing:.18em;
     text-transform:uppercase;
-    color:var(--accent);
-    margin-bottom:10px;
+    color:var(--accent2);
+    margin-bottom:12px;
   }
   .hero .figure{
+    position:relative;
     font-family:var(--mono);
     font-weight:700;
-    font-size:clamp(42px,9vw,78px);
-    letter-spacing:-.01em;
-    color:var(--ink);
+    font-size:clamp(48px,10vw,92px);
+    letter-spacing:-.02em;
+    line-height:1;
+    background:linear-gradient(180deg,var(--ink) 45%,var(--ink-dim));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0 40px rgba(139,92,246,0.25));
   }
-  .hero .figure .cents{font-size:.5em;color:var(--ink-dim);}
+  .hero .figure .cents{font-size:.48em;color:var(--ink-faint);-webkit-text-fill-color:var(--ink-faint);}
   .hero .delta{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
     font-family:var(--mono);
-    font-size:13px;
-    margin-top:6px;
+    font-size:12.5px;
+    margin-top:14px;
+    padding:6px 14px;
+    border-radius:999px;
+    border:1px solid var(--hair-bright);
+    background:rgba(255,255,255,0.03);
     color:var(--ink-dim);
   }
-  .hero .delta .pos{color:var(--gain);}
-  .hero .delta .neg{color:var(--loss);}
+  .hero .delta:empty{display:none;}
+  .hero .delta .pos{color:var(--gain);font-weight:600;}
+  .hero .delta .neg{color:var(--loss);font-weight:600;}
 
-  .hero-bar{max-width:640px;margin:26px auto 6px;}
+  .hero-bar{position:relative;max-width:640px;margin:30px auto 6px;}
   .hero-bar .bar{
     display:flex;
-    height:22px;
+    height:26px;
+    border-radius:8px;
     border:1px solid var(--hair-bright);
     overflow:hidden;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
   }
-  .hero-bar .seg-cash{background:linear-gradient(180deg,#5B4FCF,#3730A3);}
-  .hero-bar .seg-okx{background:linear-gradient(180deg,var(--accent2),#0E7490);}
+  .hero-bar .seg-cash,.hero-bar .seg-okx{transition:width .8s cubic-bezier(.2,.7,.3,1);}
+  .hero-bar .seg-cash{background:linear-gradient(180deg,#7C6FEF,#4C3FB8);box-shadow:inset 0 0 20px rgba(255,255,255,0.08);}
+  .hero-bar .seg-okx{background:linear-gradient(180deg,#4CE4F7,var(--accent2));box-shadow:inset 0 0 20px rgba(255,255,255,0.1);}
   .hero-dims{width:100%;height:46px;display:block;font-family:var(--mono);}
   .hero-dims text{fill:var(--ink-dim);font-size:11px;}
-  .hero-dims .val{fill:var(--ink);font-weight:600;}
+  .hero-dims .val{fill:var(--ink);font-weight:700;font-size:12px;}
   .hero-dims line{stroke:var(--hair-bright);stroke-width:1;}
+
+  @keyframes hero-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){
+    .hero{animation:none;}
+    .hero-bar .seg-cash,.hero-bar .seg-okx{transition:none;}
+  }
 
   /* ---------- sheet sections ---------- */
   .sheet{margin-bottom:34px;}
@@ -347,15 +390,6 @@
   .fin-panel .fp-sub{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:4px;}
   .fin-panel .fp-sub b{color:var(--ink-dim);}
 
-  .fp-bar{height:10px;background:var(--bg-panel-2);border:1px solid var(--hair);margin:10px 0 6px;overflow:hidden;display:flex;}
-  .fp-bar .fp-seg{height:100%;transition:width .4s ease;}
-  .fp-bar-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--ink-faint);}
-
-  /* savings gauge segment colors */
-  .seg-fixed{background:var(--hair-bright);}
-  .seg-dca{background:var(--accent);}
-  .seg-free{background:rgba(52,211,153,0.55);}
-
   /* debt progress bar */
   .fp-progress{height:8px;background:var(--bg-panel-2);border:1px solid var(--hair);margin:10px 0 5px;position:relative;overflow:hidden;}
   .fp-progress .fp-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .6s ease;}
@@ -404,7 +438,7 @@
     -webkit-background-clip:text;background-clip:text;color:transparent;
   }
   .hero-bar .bar{border-radius:11px;overflow:hidden;border-color:var(--hair-bright) !important;}
-  .fp-bar, .fp-progress{border-radius:8px;overflow:hidden;}
+  .fp-progress{border-radius:8px;overflow:hidden;}
 
   /* clickable asset cards */
   .card[role="button"]{cursor:pointer;}
@@ -524,7 +558,7 @@
   <div class="titleblock">
     <div class="tb-main">
       <span class="tb-title">Personal Balance Sheet</span>
-      <span class="tb-sub">DCA + savings — live drawing</span>
+      <span class="tb-sub">DCA + savings tracker</span>
     </div>
     <div class="tb-field"><span class="k">Date</span><span class="v" id="tb-date">—</span></div>
     <div class="tb-field tb-year">
@@ -541,7 +575,7 @@
   <div id="content" class="hidden">
 
     <div class="hero">
-      <div class="eyebrow">Total Capacity — USD</div>
+      <div class="eyebrow">Total Net Worth — USD</div>
       <div class="figure" id="hero-total">$0<span class="cents">.00</span></div>
       <div class="delta" id="hero-delta"></div>
       <div class="hero-bar">
@@ -555,14 +589,14 @@
 
     <div class="fin-health-row">
       <div class="fin-panel" id="debt-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-      <div class="fin-panel" id="savings-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      <div class="fin-panel" id="milestone-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       <div class="fin-panel" id="coastfi-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
     </div>
 
     <div class="sheet" id="sheet-foundation">
       <div class="sheet-head">
-        <span class="tag">SHT. 01</span>
-        <h2>Foundation — Cash &amp; Bank</h2>
+        <span class="tag">01</span>
+        <h2>Cash &amp; Bank</h2>
         <span class="note" id="fx-note"></span>
       </div>
       <table class="acct-table">
@@ -573,8 +607,8 @@
 
     <div class="sheet" id="sheet-superstructure">
       <div class="sheet-head">
-        <span class="tag">SHT. 02</span>
-        <h2>Superstructure — DCA Positions</h2>
+        <span class="tag">02</span>
+        <h2>Holdings — DCA Positions</h2>
       </div>
       <div class="cards" id="asset-cards"></div>
       <div class="pace-strip" id="pace-strip"></div>
@@ -582,8 +616,8 @@
 
     <div class="sheet" id="sheet-history">
       <div class="sheet-head">
-        <span class="tag">SHT. 03</span>
-        <h2>Load History — Equity Curve</h2>
+        <span class="tag">03</span>
+        <h2>Performance — Equity Curve</h2>
       </div>
       <div class="chart-box">
         <div class="chart-title">
@@ -609,8 +643,8 @@
 
     <div class="sheet" id="sheet-log">
       <div class="sheet-head">
-        <span class="tag">SHT. 04</span>
-        <h2>Site Log — Weekly Trades</h2>
+        <span class="tag">04</span>
+        <h2>Trade Log — Weekly Trades</h2>
       </div>
       <div class="log-controls">
         <select id="log-filter">
@@ -673,8 +707,6 @@ const TABS = {
 };
 
 // ---- personal constants (update these if life changes) ----
-const MONTHLY_INCOME   = 800;
-const MONTHLY_RENT     = 0;
 const MONTHLY_DEBT     = 300;   // car debt — clears Dec 31 2026
 const DEBT_FREE_DATE   = new Date(2026, 11, 31);  // Dec 31 2026
 const DEBT_PLAN_START  = new Date(2026, 0, 1);    // Jan 1 2026 — progress reference
@@ -1238,50 +1270,48 @@ function renderDebtCountdown() {
 }
 
 /* =========================================================================
-   SAVINGS GAUGE (#5)
+   NET WORTH MILESTONES (#5)
    ========================================================================= */
-function renderSavingsGauge(dcaPace) {
-  const panel = document.getElementById('savings-panel');
-  if (!panel) return;
-  const monthlyDCA   = dcaPace ? dcaPace.avgPerWeek * (52 / 12) : 0;
-  const fixedNow     = MONTHLY_RENT + MONTHLY_DEBT;
-  const discretionary = Math.max(0, MONTHLY_INCOME - fixedNow - monthlyDCA);
-  const pFixed = (fixedNow     / MONTHLY_INCOME * 100).toFixed(1);
-  const pDCA   = (monthlyDCA   / MONTHLY_INCOME * 100).toFixed(1);
-  const pFree  = (discretionary / MONTHLY_INCOME * 100).toFixed(1);
-  const savingsRate = ((monthlyDCA / MONTHLY_INCOME) * 100).toFixed(1);
-  // post-debt projection
-  const fixedPost  = MONTHLY_RENT;
-  const postDCA    = monthlyDCA + MONTHLY_DEBT; // redirect debt payment to savings
-  const postDiscretionary = Math.max(0, MONTHLY_INCOME - fixedPost - postDCA);
-  const postSaving = ((postDCA / MONTHLY_INCOME) * 100).toFixed(1);
-  const pFixedPost = (fixedPost / MONTHLY_INCOME * 100).toFixed(1);
-  const pDCAPost   = (postDCA / MONTHLY_INCOME * 100).toFixed(1);
-  const pFreePost  = (postDiscretionary / MONTHLY_INCOME * 100).toFixed(1);
+const NET_WORTH_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000, 250000];
 
-  window.__savingsDetails = {
-    monthlyDCA, fixedNow, discretionary, pFixed, pDCA, pFree, savingsRate,
-    fixedPost, postDCA, postDiscretionary, postSaving, pFixedPost, pDCAPost, pFreePost,
-  };
+function renderMilestones(currentTotal, monthlyDCA) {
+  const panel = document.getElementById('milestone-panel');
+  if (!panel) return;
+  const total = currentTotal || 0;
+  const nextIdx = NET_WORTH_MILESTONES.findIndex((m) => m > total);
+  const reachedCount = nextIdx >= 0 ? nextIdx : NET_WORTH_MILESTONES.length;
+
+  window.__milestoneDetails = { total, monthlyDCA, milestones: NET_WORTH_MILESTONES, reachedCount };
+
+  if (nextIdx === -1) {
+    const last = NET_WORTH_MILESTONES[NET_WORTH_MILESTONES.length - 1];
+    panel.innerHTML = `
+      <div class="fp-label">Net Worth Milestones</div>
+      <div class="fp-headline">All cleared 🎉</div>
+      <div class="fp-sub">Past <b>${fmtUSD(last, 0)}</b> — ${NET_WORTH_MILESTONES.length}/${NET_WORTH_MILESTONES.length} milestones reached.</div>
+      <div class="card-expand-hint">View details →</div>`;
+    return;
+  }
+
+  const next = NET_WORTH_MILESTONES[nextIdx];
+  const prev = nextIdx > 0 ? NET_WORTH_MILESTONES[nextIdx - 1] : 0;
+  const span = next - prev;
+  const pct = span ? Math.max(0, Math.min(100, ((total - prev) / span) * 100)) : 100;
+  const remaining = Math.max(0, next - total);
+  const monthsToGo = monthlyDCA > 0 ? Math.ceil(remaining / monthlyDCA) : null;
+
+  window.__milestoneDetails.next = next;
+  window.__milestoneDetails.prev = prev;
+  window.__milestoneDetails.pct = pct;
+  window.__milestoneDetails.remaining = remaining;
+  window.__milestoneDetails.monthsToGo = monthsToGo;
 
   panel.innerHTML = `
-    <div class="fp-label">Budget Allocation (Plan)</div>
-    <div class="fp-headline">${savingsRate}% <span style="font-size:13px;font-weight:400;color:var(--ink-dim)">DCA rate</span></div>
-    <div class="fp-sub">DCA ~<b>$${monthlyDCA.toFixed(0)}/mo</b> · fixed <b>$${fixedNow}</b> · disc <b>$${discretionary.toFixed(0)}</b> — <i style="color:var(--ink-faint)">planned, not live</i></div>
-    <div class="fp-bar">
-      <div class="fp-seg seg-fixed" style="width:${pFixed}%"></div>
-      <div class="fp-seg seg-dca"   style="width:${pDCA}%"></div>
-      <div class="fp-seg seg-free"  style="width:${pFree}%"></div>
-    </div>
-    <div class="fp-bar-labels">
-      <span style="color:var(--ink-faint)">Fixed ${pFixed}%</span>
-      <span style="color:var(--accent)">DCA ${pDCA}%</span>
-      <span style="color:var(--gain)">Disc ${pFree}%</span>
-    </div>
-    <div class="fp-sub" style="margin-top:8px;">
-      Post-Jan 2027: <b style="color:var(--gain)">${postSaving}% savings rate</b>
-      if debt payment redirected to DCA
-    </div>
+    <div class="fp-label">Next Milestone</div>
+    <div class="fp-headline">${fmtUSD(next, 0)}</div>
+    <div class="fp-sub">${fmtUSD(remaining, 0)} to go${monthsToGo != null ? ` · ~<b>${monthsToGo} mo</b> at current DCA pace` : ''}</div>
+    <div class="fp-progress"><div class="fp-fill" style="width:${pct.toFixed(1)}%"></div></div>
+    <div class="fp-ticks"><span>${fmtUSD(prev, 0)}</span><span>${pct.toFixed(0)}%</span><span>${fmtUSD(next, 0)}</span></div>
     <div class="card-expand-hint">View details →</div>`;
 }
 
@@ -1662,59 +1692,50 @@ function openDebtModal() {
 }
 
 /* =========================================================================
-   SAVINGS DETAIL MODAL
+   MILESTONE DETAIL MODAL
    ========================================================================= */
-function openSavingsModal() {
-  const d = window.__savingsDetails;
+function openMilestoneModal() {
+  const d = window.__milestoneDetails;
   if (!d) return;
-  const { monthlyDCA, fixedNow, discretionary, pFixed, pDCA, pFree, savingsRate,
-          fixedPost, postDCA, postDiscretionary, postSaving, pFixedPost, pDCAPost, pFreePost } = d;
+  const { total, monthlyDCA, milestones, reachedCount, next, remaining, monthsToGo } = d;
+
+  const rows = milestones.map((m) => {
+    const reached = total >= m;
+    const isNext = m === next;
+    const status = reached ? 'Reached' : (isNext ? 'Next' : 'Locked');
+    const color = reached ? 'var(--gain)' : (isNext ? 'var(--accent2)' : 'var(--ink-faint)');
+    const icon = reached ? '✓' : (isNext ? '→' : '·');
+    return `
+      <tr>
+        <td>${icon} ${fmtUSD(m, 0)}</td>
+        <td style="color:${color}">${status}</td>
+      </tr>`;
+  }).join('');
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-head">
-      <span class="modal-asset">Budget Allocation</span>
-      <span class="modal-mv">${savingsRate}%</span>
-      <span class="modal-pl">current DCA rate</span>
+      <span class="modal-asset">Net Worth Milestones</span>
+      <span class="modal-mv">${reachedCount}/${milestones.length}</span>
+      <span class="modal-pl">reached</span>
     </div>
 
     <div class="modal-stats">
-      <div><span class="k">Monthly income</span><span class="v">${fmtUSD(MONTHLY_INCOME, 0)}</span></div>
-      <div><span class="k">Fixed costs</span><span class="v">${fmtUSD(fixedNow, 0)}</span></div>
-      <div><span class="k">DCA / mo</span><span class="v">${fmtUSD(monthlyDCA, 0)}</span></div>
-      <div><span class="k">Discretionary</span><span class="v">${fmtUSD(discretionary, 0)}</span></div>
-      <div><span class="k">Post-debt DCA</span><span class="v">${fmtUSD(postDCA, 0)}</span></div>
-      <div><span class="k">Post-debt rate</span><span class="v" style="color:var(--gain)">${postSaving}%</span></div>
+      <div><span class="k">Current net worth</span><span class="v">${fmtUSD(total)}</span></div>
+      <div><span class="k">Next milestone</span><span class="v">${next != null ? fmtUSD(next, 0) : '—'}</span></div>
+      <div><span class="k">Remaining</span><span class="v">${next != null ? fmtUSD(remaining, 0) : '—'}</span></div>
+      <div><span class="k">DCA pace</span><span class="v">${fmtUSD(monthlyDCA, 0)}/mo</span></div>
+      <div><span class="k">Est. time to next</span><span class="v">${monthsToGo != null ? monthsToGo + ' mo' : '—'}</span></div>
     </div>
 
     <div class="modal-section">
-      <h3>Now — through Dec 2026</h3>
-      <div class="fp-bar">
-        <div class="fp-seg seg-fixed" style="width:${pFixed}%"></div>
-        <div class="fp-seg seg-dca"   style="width:${pDCA}%"></div>
-        <div class="fp-seg seg-free"  style="width:${pFree}%"></div>
-      </div>
-      <div class="fp-bar-labels">
-        <span style="color:var(--ink-faint)">Fixed ${pFixed}%</span>
-        <span style="color:var(--accent)">DCA ${pDCA}%</span>
-        <span style="color:var(--gain)">Disc ${pFree}%</span>
-      </div>
-    </div>
-
-    <div class="modal-section">
-      <h3>Post-payoff — from Jan 2027</h3>
-      <div class="fp-bar">
-        <div class="fp-seg seg-fixed" style="width:${pFixedPost}%"></div>
-        <div class="fp-seg seg-dca"   style="width:${pDCAPost}%"></div>
-        <div class="fp-seg seg-free"  style="width:${pFreePost}%"></div>
-      </div>
-      <div class="fp-bar-labels">
-        <span style="color:var(--ink-faint)">Fixed ${pFixedPost}%</span>
-        <span style="color:var(--accent)">DCA ${pDCAPost}%</span>
-        <span style="color:var(--gain)">Disc ${pFreePost}%</span>
-      </div>
+      <h3>Milestone ladder</h3>
+      <div class="modal-log-wrap"><table>
+        <thead><tr><th>Milestone</th><th>Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
       <div class="modal-empty" style="padding-top:12px;">
-        Freeing up the ${fmtUSD(MONTHLY_DEBT, 0)}/mo debt payment and redirecting it to DCA lifts
-        the savings rate from ${savingsRate}% to <b style="color:var(--gain)">${postSaving}%</b>.
+        Estimate uses your current live DCA pace (${fmtUSD(monthlyDCA, 0)}/mo) — it doesn't yet account for
+        cash/bank savings growth, so actual time-to-milestone will likely be a bit faster.
       </div>
     </div>
   `;
@@ -1809,9 +1830,9 @@ document.getElementById('debt-panel').addEventListener('click', openDebtModal);
 document.getElementById('debt-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDebtModal(); }
 });
-document.getElementById('savings-panel').addEventListener('click', openSavingsModal);
-document.getElementById('savings-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSavingsModal(); }
+document.getElementById('milestone-panel').addEventListener('click', openMilestoneModal);
+document.getElementById('milestone-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMilestoneModal(); }
 });
 document.getElementById('coastfi-panel').addEventListener('click', openCoastFIModal);
 document.getElementById('coastfi-panel').addEventListener('keydown', (e) => {
@@ -1829,9 +1850,10 @@ document.addEventListener('keydown', (e) => {
 function render(data) {
   const { savings, summary, trades, rules, chart } = data;
 
-  // ---- debt countdown + savings gauge ----
+  // ---- debt countdown + milestones ----
   renderDebtCountdown();
-  renderSavingsGauge(summary.dcaPace);
+  const monthlyDCA = summary.dcaPace ? summary.dcaPace.avgPerWeek * (52 / 12) : 0;
+  renderMilestones(savings.totalNetSavings, monthlyDCA);
   renderCoastFI(savings.totalNetSavings);
 
   // ---- title block ----
@@ -1859,7 +1881,8 @@ function render(data) {
   const netPL = summary.total ? summary.total.unrealizedPL : null;
   const deltaEl = document.getElementById('hero-delta');
   if (netPL != null) {
-    deltaEl.innerHTML = `<span class="${netPL >= 0 ? 'pos' : 'neg'}">${netPL >= 0 ? '+' : ''}${fmtUSD(netPL)}</span> unrealized on DCA positions`;
+    const arrow = netPL >= 0 ? '▲' : '▼';
+    deltaEl.innerHTML = `<span class="${netPL >= 0 ? 'pos' : 'neg'}">${arrow} ${netPL >= 0 ? '+' : ''}${fmtUSD(netPL)}</span><span>unrealized on DCA positions</span>`;
   }
 
   const cashV = savings.cashSubtotal || 0, okxV = savings.okxSubtotal || 0;
@@ -2174,7 +2197,7 @@ function buildPrintSnapshot(data) {
     </div>
 
     <div class="ps-section">
-      <div class="ps-sh">Foundation — Cash &amp; Bank</div>
+      <div class="ps-sh">Cash &amp; Bank</div>
       <table class="ps-table">
         <thead><tr><th>Account</th><th>Currency</th><th>Native</th><th>USD</th></tr></thead>
         <tbody>${acctRows}</tbody>
@@ -2183,7 +2206,7 @@ function buildPrintSnapshot(data) {
     </div>
 
     <div class="ps-section">
-      <div class="ps-sh">Superstructure — DCA Positions</div>
+      <div class="ps-sh">Holdings — DCA Positions</div>
       <div class="ps-positions">${posCards}</div>
       ${summary.dcaPace ? `<div style="font-size:8pt;color:#666">
         Weeks active: ${summary.dcaPace.weeksActive}
@@ -2195,12 +2218,12 @@ function buildPrintSnapshot(data) {
 
     ${chartImg ? `
     <div class="ps-section">
-      <div class="ps-sh">Load History — Equity Curve</div>
+      <div class="ps-sh">Performance — Equity Curve</div>
       <div class="ps-chart"><img src="${chartImg}" /></div>
     </div>` : ''}
 
     <div class="ps-section">
-      <div class="ps-sh">Site Log — ${trades.length} Trades</div>
+      <div class="ps-sh">Trade Log — ${trades.length} Trades</div>
       <table class="ps-table">
         <thead><tr>
           <th>Wk</th><th>Date</th><th>Asset</th><th>Price</th><th>Amount</th>

@@ -700,7 +700,7 @@
 /* =========================================================================
    CONFIG
    ========================================================================= */
-const SHEET_ID = '1_nQhvOes8i8WI8hUWa-awBDD60_ZB1x2cl7AdiUvTs4';
+// SHEET_ID moved to GitHub Actions secret — never hardcoded in source
 const TABS = {
   savings: 'Savings Dashboard',
   log: 'DCA Log',
@@ -711,7 +711,7 @@ const TABS = {
 const MONTHLY_DEBT     = 300;   // car debt — clears Dec 31 2026
 
 // ---- emergency fund constants ----
-const EMERGENCY_FUND_MONTHLY_ESSENTIALS = 400;  // baseline essential living cost, $/mo
+const EMERGENCY_FUND_MONTHLY_ESSENTIALS = 300;  // baseline essential living cost, $/mo
 const EMERGENCY_FUND_MONTHS_TARGET      = 3;    // months of essentials to hold in reserve
 const EMERGENCY_FUND_TARGET             = EMERGENCY_FUND_MONTHLY_ESSENTIALS * EMERGENCY_FUND_MONTHS_TARGET;
 const DEBT_FREE_DATE   = new Date(2026, 11, 31);  // Dec 31 2026
@@ -724,49 +724,45 @@ const COAST_FI_TARGET        = COAST_FI_ANNUAL_SPEND / COAST_FI_WITHDRAW_RATE; /
 const COAST_FI_RETURN_RATE   = 0.08;                                           // assumed blended annual return, conservative
 
 /* =========================================================================
-   GVIZ FETCH (JSONP — works for sheets shared "Anyone with the link: Viewer")
+   DATA FETCH (from pre-generated JSON files via GitHub Actions)
    ========================================================================= */
-let jsonpSeq = 0;
+const DATA_FILE_MAP = {
+  'Savings Dashboard': 'data/savings-dashboard.json',
+  'Summary': 'data/summary.json',
+  'History': 'data/history.json',
+  'DCA Log': 'data/dca-log.json',
+};
+
 function fetchSheetJSONP(sheetName, timeoutMs = 15000, range = null) {
   return new Promise((resolve, reject) => {
-    const cbName = `__gviz_cb_${Date.now()}_${jsonpSeq++}`;
-    const script = document.createElement('script');
-    let settled = false;
-    const timer = setTimeout(() => finish(false, new Error(`Timed out loading "${sheetName}"`)), timeoutMs);
-
-    function cleanup() {
-      clearTimeout(timer);
-      delete window[cbName];
-      script.remove();
-    }
-    function finish(ok, payload) {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      ok ? resolve(payload) : reject(payload);
+    const filePath = DATA_FILE_MAP[sheetName];
+    if (!filePath) {
+      reject(new Error(`Unknown sheet: "${sheetName}"`));
+      return;
     }
 
-    window[cbName] = (json) => {
-      // json.status can be 'error' even with an HTTP 200 — surface it instead of
-      // silently returning an empty/garbage table.
-      if (json && json.status === 'error') {
-        const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'gviz returned an error';
-        finish(false, new Error(`"${sheetName}": ${msg}`));
-        return;
-      }
-      if (json && json.table) finish(true, json.table);
-      else finish(false, new Error(`Malformed response for "${sheetName}"`));
-    };
-    script.onerror = () => finish(false, new Error(
-      `Could not load "${sheetName}". The sheet likely isn't shared as "Anyone with the link — Viewer".`
-    ));
-    // Bounding huge/mostly-blank formula ranges (1000-row tabs) with an explicit
-    // range avoids gviz's column-type auto-detection getting confused over
-    // thousands of blank cells below the real data.
-    let url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
-    if (range) url += `&range=${encodeURIComponent(range)}`;
-    script.src = url;
-    document.head.appendChild(script);
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out loading "${sheetName}"`));
+    }, timeoutMs);
+
+    fetch(filePath)
+      .then(res => {
+        clearTimeout(timer);
+        if (!res.ok) throw new Error(`HTTP ${res.status} loading "${sheetName}"`);
+        return res.json();
+      })
+      .then(json => {
+        if (json && json.status === 'error') {
+          const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'Data error';
+          throw new Error(`"${sheetName}": ${msg}`);
+        }
+        if (json && json.table) resolve(json.table);
+        else throw new Error(`Malformed response for "${sheetName}"`);
+      })
+      .catch(err => {
+        clearTimeout(timer);
+        reject(err);
+      });
   });
 }
 

@@ -5,6 +5,9 @@ on:
     - cron: '0 * * * *'  # Run hourly (0 minutes past every hour)
   workflow_dispatch:      # Allow manual trigger from GitHub UI
 
+permissions:
+  contents: write
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
@@ -14,29 +17,56 @@ jobs:
       - name: Create data directory
         run: mkdir -p data
 
+      - name: Install dependencies
+        run: apt-get update && apt-get install -y curl jq
+
       - name: Fetch sheet data
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
         run: |
-          # Fetch Savings Dashboard tab
-          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Savings%20Dashboard" \
-            | sed 's/^.*({//{' | sed 's/});$/}/' > data/savings-dashboard.json
+          FALLBACK='{"table":{"cols":[],"rows":[]}}'
 
-          # Fetch Summary tab
-          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Summary" \
-            | sed 's/^.*({//{' | sed 's/});$/}/' > data/summary.json
+          fetch_tab () {
+            local tab_name="$1"
+            local out_file="$2"
+            local encoded
+            encoded=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$tab_name")
+            local url="https://docs.google.com/spreadsheets/d/$SHEET_ID/gviz/tq?tqx=out:json&sheet=$encoded"
 
-          # Fetch History tab
-          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=History" \
-            | sed 's/^.*({//{' | sed 's/});$/}/' > data/history.json
+            echo "Fetching '$tab_name' -> $out_file"
+            if curl -fsL "$url" -o /tmp/raw.json; then
+              # Strip the google.visualization.Query.setResponse(...) wrapper
+              sed 's/^[^{]*//;s/[^}]*$//' /tmp/raw.json > "$out_file"
+              if [ ! -s "$out_file" ] || ! jq empty "$out_file" >/dev/null 2>&1; then
+                echo "  WARNING: response for '$tab_name' wasn't valid JSON after stripping — using fallback"
+                echo "$FALLBACK" > "$out_file"
+              else
+                echo "  OK ($(wc -c < "$out_file") bytes)"
+              fi
+            else
+              echo "  ERROR: curl failed for '$tab_name' (bad tab name, bad SHEET_ID, or sheet not accessible) — using fallback"
+              echo "$FALLBACK" > "$out_file"
+            fi
+          }
 
-          # Fetch DCA Log tab
-          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=DCA%20Log" \
-            | sed 's/^.*({//{' | sed 's/});$/}/' > data/dca-log.json
+          fetch_tab "Savings Dashboard" "data/savings-dashboard.json"
+          fetch_tab "Summary"           "data/summary.json"
+          fetch_tab "History"           "data/history.json"
+          fetch_tab "DCA Log"           "data/dca-log.json"
+
+          echo "---- final data/ contents ----"
+          ls -lah data/
+          echo "---- first 200 chars of each file ----"
+          for f in data/*.json; do echo "== $f =="; head -c 200 "$f"; echo; done
 
       - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/*.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update sheet data - $(date +'%Y-%m-%d %H:%M:%S UTC')" && git push)
+          if ! git diff --quiet && git diff --staged --quiet; then
+            git commit -m "Update sheet data - $(date +'%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          else
+            echo "No changes to commit"
+          fi

@@ -31,9 +31,17 @@ jobs:
             local url="https://docs.google.com/spreadsheets/d/$SHEET_ID/gviz/tq?tqx=out:json&sheet=$encoded"
 
             echo "Fetching '$tab_name' -> $out_file"
+            echo "URL: $url"
             if curl -fsL "$url" -o /tmp/raw.json; then
+              echo "Raw response (first 500 chars):"
+              head -c 500 /tmp/raw.json
+              echo ""
+              echo "---"
               # Strip the google.visualization.Query.setResponse(...) wrapper
               sed 's/^[^{]*//;s/[^}]*$//' /tmp/raw.json > "$out_file"
+              echo "After sed (first 200 chars):"
+              head -c 200 "$out_file"
+              echo ""
               if [ ! -s "$out_file" ] || ! jq empty "$out_file" >/dev/null 2>&1; then
                 echo "  WARNING: response for '$tab_name' wasn't valid JSON after stripping — using fallback"
                 echo "$FALLBACK" > "$out_file"
@@ -41,7 +49,7 @@ jobs:
                 echo "  OK ($(wc -c < "$out_file") bytes)"
               fi
             else
-              echo "  ERROR: curl failed for '$tab_name' (bad tab name, bad SHEET_ID, or sheet not accessible) — using fallback"
+              echo "  ERROR: curl failed for '$tab_name' (HTTP error)"
               echo "$FALLBACK" > "$out_file"
             fi
           }
@@ -52,15 +60,13 @@ jobs:
 
           echo "---- final data/ contents ----"
           ls -lah data/
-          echo "---- first 200 chars of each file ----"
-          for f in data/*.json; do echo "== $f =="; head -c 200 "$f"; echo; done
 
       - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/*.json
-          if ! git diff --quiet && git diff --staged --quiet; then
+          if [ -n "$(git status --porcelain)" ]; then
             git commit -m "Update sheet data - $(date +'%Y-%m-%d %H:%M:%S UTC')"
             git push
           else

@@ -1,0 +1,42 @@
+name: Fetch Google Sheet Data
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Run hourly (0 minutes past every hour)
+  workflow_dispatch:      # Allow manual trigger from GitHub UI
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Fetch sheet data
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+        run: |
+          # Fetch Savings Dashboard tab
+          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Savings%20Dashboard" \
+            | sed 's/^.*({//{' | sed 's/});$/}/' > data/savings-dashboard.json
+
+          # Fetch Summary tab
+          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Summary" \
+            | sed 's/^.*({//{' | sed 's/});$/}/' > data/summary.json
+
+          # Fetch History tab
+          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=History" \
+            | sed 's/^.*({//{' | sed 's/});$/}/' > data/history.json
+
+          # Fetch DCA Log tab
+          curl -s "https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=DCA%20Log" \
+            | sed 's/^.*({//{' | sed 's/});$/}/' > data/dca-log.json
+
+      - name: Commit and push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/*.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update sheet data - $(date +'%Y-%m-%d %H:%M:%S UTC')" && git push)

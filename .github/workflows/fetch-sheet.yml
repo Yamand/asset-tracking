@@ -17,9 +17,6 @@ jobs:
       - name: Create data directory
         run: mkdir -p data
 
-      - name: Install dependencies
-        run: apt-get update && apt-get install -y curl jq
-
       - name: Fetch sheet data
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
@@ -35,7 +32,6 @@ jobs:
 
             echo "Fetching '$tab_name' -> $out_file"
             if curl -fsL "$url" -o /tmp/raw.json; then
-              # Strip the google.visualization.Query.setResponse(...) wrapper
               sed 's/^[^{]*//;s/[^}]*$//' /tmp/raw.json > "$out_file"
               if [ ! -s "$out_file" ] || ! jq empty "$out_file" >/dev/null 2>&1; then
                 echo "  WARNING: response for '$tab_name' wasn't valid JSON after stripping — using fallback"

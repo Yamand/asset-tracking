@@ -32,6 +32,7 @@ jobs:
 
             echo "Fetching '$tab_name' -> $out_file"
             if curl -fsL "$url" -o /tmp/raw.json; then
+              # Strip the google.visualization.Query.setResponse(...) wrapper
               sed 's/^[^{]*//;s/[^}]*$//' /tmp/raw.json > "$out_file"
               if [ ! -s "$out_file" ] || ! jq empty "$out_file" >/dev/null 2>&1; then
                 echo "  WARNING: response for '$tab_name' wasn't valid JSON after stripping — using fallback"
@@ -46,9 +47,8 @@ jobs:
           }
 
           fetch_tab "Savings Dashboard" "data/savings-dashboard.json"
-          fetch_tab "Summary"           "data/summary.json"
-          fetch_tab "History"           "data/history.json"
           fetch_tab "DCA Log"           "data/dca-log.json"
+          fetch_tab "DCA Rules"         "data/dca-rules.json"
 
           echo "---- final data/ contents ----"
           ls -lah data/

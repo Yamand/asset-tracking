@@ -380,8 +380,8 @@
   .neg{color:var(--loss);}
 
   /* ---------- debt countdown + savings gauge row ---------- */
-  .fin-health-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:26px;}
-  @media (max-width:900px){.fin-health-row{grid-template-columns:1fr 1fr;}}
+  .fin-health-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:26px;}
+  @media (max-width:1000px){.fin-health-row{grid-template-columns:1fr 1fr;}}
   @media (max-width:640px){.fin-health-row{grid-template-columns:1fr;}}
 
   .fin-panel{border:1px solid var(--hair-bright);background:var(--bg-panel);padding:14px 16px;}
@@ -591,6 +591,7 @@
       <div class="fin-panel" id="debt-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       <div class="fin-panel" id="milestone-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       <div class="fin-panel" id="coastfi-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      <div class="fin-panel" id="emergency-fund-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
     </div>
 
     <div class="sheet" id="sheet-foundation">
@@ -708,6 +709,11 @@ const TABS = {
 
 // ---- personal constants (update these if life changes) ----
 const MONTHLY_DEBT     = 300;   // car debt — clears Dec 31 2026
+
+// ---- emergency fund constants ----
+const EMERGENCY_FUND_MONTHLY_ESSENTIALS = 400;  // baseline essential living cost, $/mo
+const EMERGENCY_FUND_MONTHS_TARGET      = 3;    // months of essentials to hold in reserve
+const EMERGENCY_FUND_TARGET             = EMERGENCY_FUND_MONTHLY_ESSENTIALS * EMERGENCY_FUND_MONTHS_TARGET;
 const DEBT_FREE_DATE   = new Date(2026, 11, 31);  // Dec 31 2026
 const DEBT_PLAN_START  = new Date(2026, 0, 1);    // Jan 1 2026 — progress reference
 
@@ -1316,6 +1322,31 @@ function renderMilestones(currentTotal, monthlyDCA) {
 }
 
 /* =========================================================================
+   EMERGENCY FUND (MAYBANK)
+   ========================================================================= */
+function renderEmergencyFund(accounts) {
+  const panel = document.getElementById('emergency-fund-panel');
+  if (!panel) return;
+
+  const rows = (accounts || []).filter((a) => /maybank/i.test(a.account || ''));
+  const total = rows.reduce((s, a) => s + (a.balanceUSD || 0), 0);
+  const target = EMERGENCY_FUND_TARGET;
+  const pct = target ? Math.max(0, Math.min(100, (total / target) * 100)) : 0;
+  const remaining = Math.max(0, target - total);
+  const monthsCovered = EMERGENCY_FUND_MONTHLY_ESSENTIALS ? total / EMERGENCY_FUND_MONTHLY_ESSENTIALS : 0;
+
+  window.__emergencyFundDetails = { total, target, pct, remaining, monthsCovered, rows };
+
+  panel.innerHTML = `
+    <div class="fp-label">Emergency Fund</div>
+    <div class="fp-headline">${fmtUSD(total, 0)}</div>
+    <div class="fp-sub">${monthsCovered.toFixed(1)} mo covered · ${fmtUSD(remaining, 0)} to ${EMERGENCY_FUND_MONTHS_TARGET}-mo target</div>
+    <div class="fp-progress"><div class="fp-fill" style="width:${pct.toFixed(1)}%"></div></div>
+    <div class="fp-ticks"><span>$0</span><span>${pct.toFixed(0)}%</span><span>${fmtUSD(target, 0)}</span></div>
+    <div class="card-expand-hint">View details →</div>`;
+}
+
+/* =========================================================================
    COAST FI PROJECTION
    ========================================================================= */
 function renderCoastFI(currentPV) {
@@ -1744,6 +1775,52 @@ function openMilestoneModal() {
 }
 
 /* =========================================================================
+   EMERGENCY FUND DETAIL MODAL
+   ========================================================================= */
+function openEmergencyFundModal() {
+  const d = window.__emergencyFundDetails;
+  if (!d) return;
+  const { total, target, remaining, monthsCovered, rows } = d;
+
+  const rowsHtml = (rows || []).map((a) => `
+    <tr>
+      <td>${a.account}${a.currency ? ' (' + a.currency + ')' : ''}</td>
+      <td>${a.balanceNative != null ? a.balanceNative.toLocaleString() : '—'}</td>
+      <td>${fmtUSD(a.balanceUSD || 0)}</td>
+    </tr>`).join('') || '<tr><td colspan="3">No MAYBANK rows found in sheet.</td></tr>';
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Emergency Fund</span>
+      <span class="modal-mv">${fmtUSD(total)}</span>
+      <span class="modal-pl">${monthsCovered.toFixed(1)} mo covered</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Current balance</span><span class="v">${fmtUSD(total)}</span></div>
+      <div><span class="k">Target (${EMERGENCY_FUND_MONTHS_TARGET} mo)</span><span class="v">${fmtUSD(target, 0)}</span></div>
+      <div><span class="k">Remaining</span><span class="v">${fmtUSD(remaining, 0)}</span></div>
+      <div><span class="k">Monthly essentials</span><span class="v">${fmtUSD(EMERGENCY_FUND_MONTHLY_ESSENTIALS, 0)}</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>MAYBANK accounts</h3>
+      <div class="modal-log-wrap"><table>
+        <thead><tr><th>Account</th><th>Native</th><th>USD</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table></div>
+      <div class="modal-empty" style="padding-top:12px;">
+        Target assumes ${EMERGENCY_FUND_MONTHS_TARGET} months of essential living costs at
+        ${fmtUSD(EMERGENCY_FUND_MONTHLY_ESSENTIALS, 0)}/mo — adjust <code>EMERGENCY_FUND_MONTHLY_ESSENTIALS</code>
+        in the script if your baseline changes.
+      </div>
+    </div>
+  `;
+
+  showModal();
+}
+
+/* =========================================================================
    COAST FI DETAIL MODAL
    ========================================================================= */
 function openCoastFIModal() {
@@ -1838,6 +1915,10 @@ document.getElementById('coastfi-panel').addEventListener('click', openCoastFIMo
 document.getElementById('coastfi-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCoastFIModal(); }
 });
+document.getElementById('emergency-fund-panel').addEventListener('click', openEmergencyFundModal);
+document.getElementById('emergency-fund-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEmergencyFundModal(); }
+});
 
 document.getElementById('modal-close').addEventListener('click', closeAssetModal);
 document.getElementById('asset-modal').addEventListener('click', (e) => {
@@ -1855,6 +1936,7 @@ function render(data) {
   const monthlyDCA = summary.dcaPace ? summary.dcaPace.avgPerWeek * (52 / 12) : 0;
   renderMilestones(savings.totalNetSavings, monthlyDCA);
   renderCoastFI(savings.totalNetSavings);
+  renderEmergencyFund(savings.accounts);
 
   // ---- title block ----
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });

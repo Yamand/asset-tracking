@@ -744,7 +744,11 @@ function fetchSheetJSONP(sheetName, timeoutMs = 15000, range = null) {
       reject(new Error(`Timed out loading "${sheetName}"`));
     }, timeoutMs);
 
-    fetch(filePath)
+    // cache-bust so browsers never serve a stale (or previously-empty) copy
+    // of these files — they get overwritten hourly by the fetch workflow.
+    const bustedPath = `${filePath}?t=${Date.now()}`;
+
+    fetch(bustedPath, { cache: 'no-store' })
       .then(res => {
         clearTimeout(timer);
         if (!res.ok) throw new Error(`HTTP ${res.status} loading "${sheetName}"`);

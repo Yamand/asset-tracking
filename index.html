@@ -326,6 +326,12 @@
     color:var(--ink-dim);padding:5px 12px;cursor:pointer;margin-left:10px;
   }
   .footer-note button:hover{color:var(--ink);border-color:var(--accent);}
+  .footer-note a.footer-link{
+    font-family:var(--mono);font-size:11px;background:transparent;border:1px solid var(--hair-bright);
+    color:var(--ink-dim);padding:5px 12px;cursor:pointer;margin-left:10px;
+    text-decoration:none;display:inline-block;
+  }
+  .footer-note a.footer-link:hover{color:var(--accent2);border-color:var(--accent2);}
 
   /* ===== PRINT SNAPSHOT ===== */
   #print-snapshot{display:none;}
@@ -681,6 +687,7 @@
     <span id="last-updated">—</span>
     <button id="refresh-btn">Refresh</button>
     <button id="print-btn">Print Snapshot</button>
+    <a class="footer-link" href="https://yamand.github.io/btc-risk-score/" target="_blank" rel="noopener">BTC Risk Score →</a>
   </div>
 
   <div class="chart-tooltip hidden" id="chart-tooltip"></div>

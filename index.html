@@ -390,6 +390,31 @@
   @media (max-width:1000px){.fin-health-row{grid-template-columns:1fr 1fr;}}
   @media (max-width:640px){.fin-health-row{grid-template-columns:1fr;}}
 
+  .risk-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px;}
+  @media (max-width:640px){.risk-row{grid-template-columns:1fr;}}
+  .fin-panel .fp-headrow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+  .fin-panel .fp-asset-icon{font-size:15px;margin-right:4px;}
+  .fp-fill.tier-buy{background:linear-gradient(90deg,#1f9d6b,var(--gain));}
+  .fp-fill.tier-hold{background:linear-gradient(90deg,var(--accent),var(--accent2));}
+  .fp-fill.tier-sell{background:linear-gradient(90deg,#e11d48,var(--loss));}
+  .zone-badge{
+    display:inline-block;padding:3px 8px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+    border:1px solid var(--accent);color:var(--accent);border-radius:20px;background:var(--accent-soft);
+  }
+  .zone-badge.tier-buy{border-color:var(--gain);color:var(--gain);background:rgba(52,211,153,0.14);}
+  .zone-badge.tier-hold{border-color:var(--accent2);color:var(--accent2);background:rgba(34,211,238,0.12);}
+  .zone-badge.tier-sell{border-color:var(--loss);color:var(--loss);background:rgba(251,113,133,0.14);}
+  .fin-panel .fp-components{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--ink-faint);}
+  .fin-panel .fp-components .comp-row{display:flex;align-items:center;gap:6px;}
+  .fin-panel .fp-components .comp-bar{flex:1;height:4px;background:var(--bg-panel-2);border:1px solid var(--hair);position:relative;overflow:hidden;}
+  .fin-panel .fp-components .comp-bar span{display:block;height:100%;background:var(--ink-faint);}
+  .fin-panel .fp-components .comp-label{min-width:52px;}
+  .fin-panel .fp-components .comp-val{min-width:32px;text-align:right;color:var(--ink-dim);}
+  .fp-armed{margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--ink-faint);}
+  .fp-armed b{color:var(--ink-dim);}
+  .fp-armed.is-armed b{color:var(--loss);}
+
   .fin-panel{border:1px solid var(--hair-bright);background:var(--bg-panel);padding:14px 16px;}
   .fin-panel .fp-label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
   .fin-panel .fp-headline{font-family:var(--mono);font-weight:700;font-size:22px;color:var(--ink);line-height:1.1;}
@@ -600,6 +625,17 @@
       <div class="fin-panel" id="emergency-fund-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
     </div>
 
+    <div class="risk-row">
+      <div class="fin-panel" id="risk-btc-panel" tabindex="0" role="button" aria-haspopup="dialog">
+        <div class="fp-label">BTC Risk Score</div>
+        <div class="fp-headline">—</div>
+      </div>
+      <div class="fin-panel" id="risk-xaut-panel" tabindex="0" role="button" aria-haspopup="dialog">
+        <div class="fp-label">XAUT (Gold) Risk Score</div>
+        <div class="fp-headline">—</div>
+      </div>
+    </div>
+
     <div class="sheet" id="sheet-foundation">
       <div class="sheet-head">
         <span class="tag">01</span>
@@ -739,6 +775,35 @@ const DATA_FILE_MAP = {
   'DCA Log': 'data/dca-log.json',
   'DCA Rules': 'data/dca-rules.json',
 };
+
+// ---- live risk score sources (separate GitHub-Pages repos, fetched read-only) ----
+const RISK_SOURCES = {
+  btc:  { label: 'BTC',  url: 'https://raw.githubusercontent.com/Yamand/btc-risk-score/main/data/btc_risk_history.json',   pageUrl: 'https://yamand.github.io/btc-risk-score/' },
+  xaut: { label: 'XAUT', url: 'https://raw.githubusercontent.com/Yamand/gold-risk-score/main/data/gold_risk_history.json', pageUrl: 'https://yamand.github.io/gold-risk-score/' },
+};
+const SELL_TIER_MIN_HOLDING = 500; // sell tiers only "armed" once holdings reach this, per DCA rules
+
+async function fetchRiskHistory(key, timeoutMs = 15000) {
+  const src = RISK_SOURCES[key];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${src.url}?t=${Date.now()}`, { cache: 'no-store', signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const arr = await res.json();
+    if (!Array.isArray(arr) || !arr.length) throw new Error('empty history');
+    return arr;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function riskTierClass(tier) {
+  if (!tier) return 'hold';
+  if (tier.startsWith('buy')) return 'buy';
+  if (tier.startsWith('sell')) return 'sell';
+  return 'hold';
+}
 
 function fetchSheetJSONP(sheetName, timeoutMs = 15000, range = null) {
   return new Promise((resolve, reject) => {
@@ -1400,6 +1465,121 @@ function renderCoastFI(currentPV) {
 }
 
 /* =========================================================================
+   LIVE RISK SCORES (BTC + XAUT — fetched from sibling repos)
+   ========================================================================= */
+const COMPONENT_LABELS = {
+  log_regression: 'Log-reg',
+  ma200_multiple: 'MA200',
+  rsi14: 'RSI-14',
+  vol_adj_momentum: 'Momentum',
+};
+
+function renderRiskPanel(key, history, holdingUSD) {
+  const src = RISK_SOURCES[key];
+  const panel = document.getElementById(`risk-${key}-panel`);
+  if (!panel) return;
+
+  if (!history) {
+    panel.innerHTML = `
+      <div class="fp-label">${src.label} Risk Score</div>
+      <div class="fp-headline" style="color:var(--ink-faint);font-size:15px;">Unavailable</div>
+      <div class="fp-sub">Couldn't load live score — <a href="${src.pageUrl}" target="_blank" rel="noopener">view page →</a></div>`;
+    return;
+  }
+
+  const latest = history[history.length - 1];
+  const tierClass = riskTierClass(latest.tier);
+  const armed = tierClass === 'sell' && holdingUSD >= SELL_TIER_MIN_HOLDING;
+  const nearArmed = tierClass === 'sell' && holdingUSD < SELL_TIER_MIN_HOLDING;
+
+  window.__riskDetails = window.__riskDetails || {};
+  window.__riskDetails[key] = { history, latest, tierClass, holdingUSD, armed };
+
+  const compRows = Object.entries(latest.components || {}).map(([k, v]) => `
+    <div class="comp-row">
+      <span class="comp-label">${COMPONENT_LABELS[k] || k}</span>
+      <span class="comp-bar"><span style="width:${(v * 100).toFixed(0)}%"></span></span>
+      <span class="comp-val">${v.toFixed(2)}</span>
+    </div>`).join('');
+
+  panel.innerHTML = `
+    <div class="fp-headrow">
+      <div class="fp-label">${src.label} Risk Score</div>
+      <span class="zone-badge tier-${tierClass}">${latest.zone}</span>
+    </div>
+    <div class="fp-headline">${latest.composite_score.toFixed(3)}</div>
+    <div class="fp-sub">${latest.action}${latest.size_usd > 0 ? ` · <b>$${latest.size_usd}</b> this week` : ''}</div>
+    <div class="fp-progress"><div class="fp-fill tier-${tierClass}" style="width:${(latest.composite_score * 100).toFixed(1)}%"></div></div>
+    <div class="fp-ticks"><span>0.00 cheap</span><span>${latest.date}</span><span>1.00 hot</span></div>
+    <div class="fp-components">${compRows}</div>
+    ${tierClass === 'sell' ? `
+      <div class="fp-armed ${armed ? 'is-armed' : ''}">
+        Sell tier ${armed ? '<b>ARMED</b>' : `<b>not armed</b> — holding $${holdingUSD.toFixed(0)} of $${SELL_TIER_MIN_HOLDING} threshold`}
+      </div>` : ''}
+    <div class="card-expand-hint">View details →</div>`;
+}
+
+function openRiskModal(key) {
+  const d = window.__riskDetails && window.__riskDetails[key];
+  if (!d) return;
+  const src = RISK_SOURCES[key];
+  const { history, latest, tierClass, holdingUSD, armed } = d;
+
+  const compRowsHtml = Object.entries(latest.components || {}).map(([k, v]) => `
+    <div><span class="k">${COMPONENT_LABELS[k] || k}</span><span class="v">${v.toFixed(3)}</span></div>`).join('');
+
+  // trailing history for the mini chart — last 90 days
+  const recent = history.slice(-90).map((row) => ({ x: new Date(row.date), y: row.composite_score }));
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">${src.label} Risk</span>
+      <span class="zone-badge tier-${tierClass}">${latest.zone}</span>
+      <span class="modal-mv">${latest.composite_score.toFixed(3)}</span>
+      <span class="modal-pl">as of ${latest.date}</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Close price</span><span class="v">${fmtUSD(latest.close)}</span></div>
+      <div><span class="k">Raw (unsmoothed)</span><span class="v">${latest.composite_score_raw != null ? latest.composite_score_raw.toFixed(3) : '—'}</span></div>
+      <div><span class="k">DCA action</span><span class="v">${latest.action}</span></div>
+      <div><span class="k">This-week size</span><span class="v">${latest.size_usd > 0 ? '$' + latest.size_usd : '—'}</span></div>
+      ${tierClass === 'sell' ? `
+      <div><span class="k">Current ${src.label} holding</span><span class="v">${fmtUSD(holdingUSD)}</span></div>
+      <div><span class="k">Sell tier status</span><span class="v" style="color:${armed ? 'var(--loss)' : 'var(--ink-dim)'}">${armed ? 'Armed' : `Not armed (need $${SELL_TIER_MIN_HOLDING})`}</span></div>` : ''}
+    </div>
+
+    <div class="modal-section">
+      <h3>Score components — why today's score</h3>
+      <div class="modal-stats">${compRowsHtml}</div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Score history — last 90 days</h3>
+      <div class="modal-chart-box">
+        ${recent.length > 1 ? `<canvas id="modal-risk-history-chart"></canvas>` : `<div class="modal-empty">Not enough history yet.</div>`}
+      </div>
+    </div>
+
+    <div class="modal-empty" style="padding-top:0;">
+      Full history, methodology and daily Telegram alerts live on the
+      <a href="${src.pageUrl}" target="_blank" rel="noopener">${src.label} risk score page →</a>
+    </div>
+  `;
+
+  showModal();
+
+  if (recent.length > 1) {
+    const canvas = document.getElementById('modal-risk-history-chart');
+    requestAnimationFrame(() => {
+      drawLineChart(canvas, [
+        { points: recent, color: tierClass === 'sell' ? '#FB7185' : (tierClass === 'buy' ? '#34D399' : '#8B5CF6'), width: 2, fill: true },
+      ], { yFormatter: (v) => v.toFixed(2), padL: 34 });
+    });
+  }
+}
+
+/* =========================================================================
    MILESTONE DETECTOR (#8)
    ========================================================================= */
 function computeMilestones(totalSeries) {
@@ -1927,6 +2107,15 @@ document.getElementById('emergency-fund-panel').addEventListener('keydown', (e) 
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEmergencyFundModal(); }
 });
 
+document.getElementById('risk-btc-panel').addEventListener('click', () => openRiskModal('btc'));
+document.getElementById('risk-btc-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('btc'); }
+});
+document.getElementById('risk-xaut-panel').addEventListener('click', () => openRiskModal('xaut'));
+document.getElementById('risk-xaut-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('xaut'); }
+});
+
 document.getElementById('modal-close').addEventListener('click', closeAssetModal);
 document.getElementById('asset-modal').addEventListener('click', (e) => {
   if (e.target.id === 'asset-modal') closeAssetModal();
@@ -1944,6 +2133,13 @@ function render(data) {
   renderMilestones(savings.totalNetSavings, monthlyDCA);
   renderCoastFI(savings.totalNetSavings);
   renderEmergencyFund(savings.accounts);
+
+  // ---- live risk scores ----
+  const holdingByAsset = {};
+  (summary.assets || []).forEach((a) => { holdingByAsset[a.asset] = a.marketValue || 0; });
+  const riskRaw = window.__riskHistoryRaw || {};
+  renderRiskPanel('btc', riskRaw.btc, holdingByAsset.BTC || 0);
+  renderRiskPanel('xaut', riskRaw.xaut, holdingByAsset.XAUT || 0);
 
   // ---- title block ----
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
@@ -2152,11 +2348,14 @@ async function loadAll() {
   document.getElementById('content').classList.add('hidden');
   window.__rawTables = {};
 
-  const [savingsR, logR, rulesR] = await Promise.all([
+  const [savingsR, logR, rulesR, btcRiskR, xautRiskR] = await Promise.all([
     loadTab('savings', TABS.savings, parseSavingsDashboard),
     loadTab('log', TABS.log, parseDCALog),
     loadTab('rules', TABS.rules, parseDCARules),
+    fetchRiskHistory('btc').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
+    fetchRiskHistory('xaut').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
   ]);
+  window.__riskHistoryRaw = { btc: btcRiskR.data, xaut: xautRiskR.data };
 
   const results = { savings: savingsR, log: logR, rules: rulesR };
   const failed = Object.entries(results).filter(([, r]) => !r.ok);

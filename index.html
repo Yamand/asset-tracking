@@ -405,15 +405,24 @@
     background:radial-gradient(circle at 8% 50%, var(--pet-glow, rgba(139,92,246,0.16)), transparent 60%);
     pointer-events:none;
     transition:background .5s ease;
+    animation:pet-panel-glow 5.5s ease-in-out infinite;
+    transform-origin:8% 50%;
   }
+  @keyframes pet-panel-glow{0%,100%{opacity:.75;transform:scale(1);}50%{opacity:1;transform:scale(1.08);}}
   .pet-avatar-wrap{flex:none;width:76px;height:92px;position:relative;}
   .pet-avatar-wrap svg{width:100%;height:100%;display:block;overflow:visible;}
+  .pet-glow-pulse{animation:pet-glow-pulse 4.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%;}
+  @keyframes pet-glow-pulse{0%,100%{opacity:.14;transform:scale(1);}50%{opacity:.26;transform:scale(1.08);}}
   .pet-bounce{animation:pet-bounce 3.2s ease-in-out infinite;transform-origin:54px 154px;}
   @keyframes pet-bounce{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-2px) rotate(-1deg);}}
   .pet-blink{animation:pet-blink 4.4s ease-in-out infinite;}
   @keyframes pet-blink{0%,92%,100%{transform:scaleY(1);}94%,96%{transform:scaleY(0.1);}}
   .pet-sparkle{animation:pet-sparkle 1.6s ease-in-out infinite;}
   @keyframes pet-sparkle{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.15);}}
+  .pet-mote-rise{animation-name:pet-mote-rise;animation-timing-function:ease-out;animation-iteration-count:infinite;transform-box:fill-box;transform-origin:50% 50%;}
+  @keyframes pet-mote-rise{0%{transform:translateY(0) scale(.5);opacity:0;}12%{opacity:.9;}100%{transform:translateY(-64px) scale(1.1);opacity:0;}}
+  .pet-mote-fall{animation-name:pet-mote-fall;animation-timing-function:ease-in;animation-iteration-count:infinite;transform-box:fill-box;transform-origin:50% 50%;}
+  @keyframes pet-mote-fall{0%{transform:translateY(-8px) scale(.9);opacity:0;}18%{opacity:.7;}100%{transform:translateY(54px) scale(.6);opacity:0;}}
   .pet-info{flex:1;min-width:190px;position:relative;}
   .pet-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:3px;}
   .pet-mood{font-family:var(--sans);font-weight:700;font-size:18px;color:var(--ink);line-height:1.2;}

@@ -413,12 +413,20 @@
   .pet-avatar-wrap svg{width:100%;height:100%;display:block;overflow:visible;}
   .pet-glow-pulse{animation:pet-glow-pulse 4.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%;}
   @keyframes pet-glow-pulse{0%,100%{opacity:.14;transform:scale(1);}50%{opacity:.26;transform:scale(1.08);}}
-  .pet-bounce{animation:pet-bounce 3.2s ease-in-out infinite;transform-origin:54px 154px;}
-  @keyframes pet-bounce{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-2px) rotate(-1deg);}}
-  .pet-blink{animation:pet-blink 4.4s ease-in-out infinite;}
-  @keyframes pet-blink{0%,92%,100%{transform:scaleY(1);}94%,96%{transform:scaleY(0.1);}}
-  .pet-sparkle{animation:pet-sparkle 1.6s ease-in-out infinite;}
-  @keyframes pet-sparkle{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.15);}}
+  .pet-sway{transform-box:fill-box;transform-origin:50% 100%;animation:pet-sway 5.2s ease-in-out infinite,pet-breathe 3.8s ease-in-out infinite;}
+  @keyframes pet-sway{0%,100%{transform:rotate(0deg);}25%{transform:rotate(-1.2deg);}50%{transform:rotate(.8deg);}75%{transform:rotate(-.6deg);}}
+  @keyframes pet-breathe{0%,100%{translate:0 0;}50%{translate:0 -2.5px;}}
+  .pet-life{transform-box:fill-box;transform-origin:50% 100%;animation:pet-life 3.2s ease-in-out infinite;}
+  @keyframes pet-life{0%,100%{transform:scale(1);}50%{transform:scale(1.015);}}
+  .pet-blink{transform-box:fill-box;transform-origin:50% 50%;animation:pet-blink 6.2s ease-in-out infinite;}
+  @keyframes pet-blink{0%,86%{transform:scaleY(1);}88%{transform:scaleY(.08);}89.5%,100%{transform:scaleY(1);}}
+  .pet-sparkle{transform-box:fill-box;transform-origin:50% 50%;animation:pet-sparkle 2.4s ease-in-out infinite;will-change:transform,opacity;}
+  .pet-sparkle:nth-of-type(1){animation-delay:-.4s;}
+  .pet-sparkle:nth-of-type(2){animation-delay:-1.3s;}
+  .pet-sparkle:nth-of-type(3){animation-delay:-1.9s;}
+  .pet-sparkle:nth-of-type(4){animation-delay:-.8s;}
+  @keyframes pet-sparkle{0%,100%{opacity:.15;transform:scale(.65) rotate(0deg);}35%{opacity:.35;transform:scale(.85) rotate(15deg);}50%{opacity:1;transform:scale(1.35) rotate(45deg);}65%{opacity:.35;transform:scale(.9) rotate(70deg);}}
+  @media (prefers-reduced-motion:reduce){.pet-sway,.pet-life,.pet-blink,.pet-sparkle,.pet-mote-rise,.pet-mote-fall,.pet-glow-pulse{animation:none!important;}}
   .pet-mote-rise{animation-name:pet-mote-rise;animation-timing-function:ease-out;animation-iteration-count:infinite;transform-box:fill-box;transform-origin:50% 50%;}
   @keyframes pet-mote-rise{0%{transform:translateY(0) scale(.5);opacity:0;}12%{opacity:.9;}100%{transform:translateY(-64px) scale(1.1);opacity:0;}}
   .pet-mote-fall{animation-name:pet-mote-fall;animation-timing-function:ease-in;animation-iteration-count:infinite;transform-box:fill-box;transform-origin:50% 50%;}
@@ -1611,14 +1619,16 @@ function buildPetSVG(mood, score) {
   return `
     <svg viewBox="-16 -14 184 220" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="54" cy="88" rx="64" ry="70" fill="${mood.color}" opacity="0.14"/>
-      <g class="pet-bounce">
-        ${canopy}
-        ${blossoms}
-        ${branch1}
-        ${branch2}
-        ${trunk}
+      <g class="pet-life">
+        <g class="pet-sway">
+          ${canopy}
+          ${blossoms}
+          ${branch1}
+          ${branch2}
+          ${trunk}
+        </g>
+        ${fallen}
       </g>
-      ${fallen}
       ${tray}
       <g class="pet-blink">
         ${brows}

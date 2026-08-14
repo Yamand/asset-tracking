@@ -385,6 +385,46 @@
   .pos{color:var(--gain);}
   .neg{color:var(--loss);}
 
+  /* ---------- portfolio pet ---------- */
+  .pet-panel{
+    border:1px solid var(--hair-bright);
+    background:var(--bg-panel);
+    padding:16px 20px;
+    margin-bottom:26px;
+    display:flex;
+    align-items:center;
+    gap:18px;
+    flex-wrap:wrap;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+  }
+  .pet-panel::before{
+    content:"";
+    position:absolute;inset:0;
+    background:radial-gradient(circle at 8% 50%, var(--pet-glow, rgba(139,92,246,0.16)), transparent 60%);
+    pointer-events:none;
+    transition:background .5s ease;
+  }
+  .pet-avatar-wrap{flex:none;width:78px;height:78px;position:relative;}
+  .pet-avatar-wrap svg{width:100%;height:100%;display:block;overflow:visible;}
+  .pet-bounce{animation:pet-bounce 2.6s ease-in-out infinite;transform-origin:50% 90%;}
+  @keyframes pet-bounce{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-3px) rotate(-1.5deg);}}
+  .pet-blink{animation:pet-blink 4.4s ease-in-out infinite;}
+  @keyframes pet-blink{0%,92%,100%{transform:scaleY(1);}94%,96%{transform:scaleY(0.1);}}
+  .pet-sparkle{animation:pet-sparkle 1.6s ease-in-out infinite;}
+  @keyframes pet-sparkle{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.15);}}
+  .pet-info{flex:1;min-width:190px;position:relative;}
+  .pet-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:3px;}
+  .pet-mood{font-family:var(--sans);font-weight:700;font-size:18px;color:var(--ink);line-height:1.2;}
+  .pet-quip{font-family:var(--mono);font-size:12px;color:var(--ink-dim);margin-top:5px;}
+  .pet-meter{margin-top:9px;display:flex;align-items:center;gap:8px;}
+  .pet-meter-track{flex:1;max-width:220px;height:5px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;}
+  .pet-meter-fill{height:100%;border-radius:3px;transition:width .6s ease, background .6s ease;}
+  .pet-meter-val{font-family:var(--mono);font-size:10px;color:var(--ink-faint);white-space:nowrap;}
+  .pet-hint{position:relative;font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-left:auto;align-self:flex-start;opacity:0;transition:opacity .18s ease;}
+  .pet-panel:hover .pet-hint{opacity:1;}
+
   /* ---------- debt countdown + savings gauge row ---------- */
   .fin-health-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:26px;}
   @media (max-width:1000px){.fin-health-row{grid-template-columns:1fr 1fr;}}
@@ -617,6 +657,8 @@
         <svg class="hero-dims" id="hero-dims" viewBox="0 0 640 46" preserveAspectRatio="none"></svg>
       </div>
     </div>
+
+    <div class="pet-panel" id="pet-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
 
     <div class="fin-health-row">
       <div class="fin-panel" id="debt-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
@@ -1419,6 +1461,185 @@ function renderEmergencyFund(accounts) {
 }
 
 /* =========================================================================
+   PORTFOLIO PET — mood mascot driven by the four fin-health panels
+   ========================================================================= */
+const PET_MOODS = [
+  {
+    min: 82, key: 'ecstatic', label: 'Thriving', color: '#34D399', glow: 'rgba(52,211,153,0.22)',
+    quips: ['All four gauges are glowing — keep this up.', 'Stacking sats and staying on track. Nice.', 'Not a single panel is lagging right now.'],
+  },
+  {
+    min: 62, key: 'happy', label: 'Doing well', color: '#22D3EE', glow: 'rgba(34,211,238,0.2)',
+    quips: ['Steady progress across the board.', 'Comfortable pace — no red flags.', 'Ticking along nicely.'],
+  },
+  {
+    min: 40, key: 'content', label: 'Holding steady', color: '#8B5CF6', glow: 'rgba(139,92,246,0.2)',
+    quips: ['Middle of the pack — a couple panels could use love.', 'Content, but there is room to push.', 'Not bad, not amazing.'],
+  },
+  {
+    min: 20, key: 'uneasy', label: 'A little worried', color: '#FBBF24', glow: 'rgba(251,191,36,0.2)',
+    quips: ['A few panels are lagging behind.', 'Could use a top-up somewhere.', 'Feeling a bit stretched thin.'],
+  },
+  {
+    min: -1, key: 'grumpy', label: 'Grumpy', color: '#FB7185', glow: 'rgba(251,113,133,0.22)',
+    quips: ['Multiple panels need attention.', 'Feed me some savings, please.', 'Not loving these numbers.'],
+  },
+];
+
+function petMoodFor(score) {
+  return PET_MOODS.find((m) => score >= m.min) || PET_MOODS[PET_MOODS.length - 1];
+}
+
+// deterministic-ish quip pick so it doesn't flicker between re-renders in the same session
+function pickQuip(mood, seed) {
+  const idx = Math.abs(seed) % mood.quips.length;
+  return mood.quips[idx];
+}
+
+function buildPetSVG(mood, score) {
+  const c = mood.color;
+  const happy = score >= 62, ecstatic = score >= 82, low = score < 40, grumpy = score < 20;
+
+  // mouth path varies by mood
+  let mouth;
+  if (ecstatic) mouth = `<path d="M38 62 Q50 78 62 62" stroke="#0A0B14" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
+  else if (happy) mouth = `<path d="M40 60 Q50 70 60 60" stroke="#0A0B14" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+  else if (!low) mouth = `<path d="M41 63 Q50 66 59 63" stroke="#0A0B14" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  else if (!grumpy) mouth = `<path d="M41 64 L59 64" stroke="#0A0B14" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  else mouth = `<path d="M40 68 Q50 56 60 68" stroke="#0A0B14" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+
+  const eyebrows = low
+    ? `<path d="M30 34 L42 39" stroke="#0A0B14" stroke-width="2.6" stroke-linecap="round"/>
+       <path d="M70 34 L58 39" stroke="#0A0B14" stroke-width="2.6" stroke-linecap="round"/>`
+    : '';
+
+  const antenna = ecstatic
+    ? `<line x1="50" y1="8" x2="50" y2="-4" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+       <circle class="pet-sparkle" cx="50" cy="-8" r="4" fill="${c}"/>`
+    : '';
+
+  const tear = grumpy
+    ? `<path d="M28 46 q-3 6 0 10 q3 -1 0 -10" fill="#7DD3FC"/>` : '';
+
+  return `
+    <svg viewBox="-14 -14 128 128" xmlns="http://www.w3.org/2000/svg">
+      ${antenna}
+      <ellipse cx="50" cy="55" rx="46" ry="42" fill="${c}" opacity="0.16"/>
+      <g class="pet-bounce">
+        <ellipse cx="50" cy="56" rx="38" ry="34" fill="${c}"/>
+        <ellipse cx="50" cy="56" rx="38" ry="34" fill="url(#pet-sheen)"/>
+        <g class="pet-blink">
+          <circle cx="36" cy="48" r="8.5" fill="#0A0B14"/>
+          <circle cx="64" cy="48" r="8.5" fill="#0A0B14"/>
+          <circle cx="33.5" cy="45" r="2.4" fill="#fff"/>
+          <circle cx="61.5" cy="45" r="2.4" fill="#fff"/>
+        </g>
+        ${eyebrows}
+        ${mouth}
+        ${tear}
+      </g>
+      <defs>
+        <radialGradient id="pet-sheen" cx="35%" cy="28%" r="60%">
+          <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+    </svg>`;
+}
+
+function renderPortfolioPet() {
+  const panel = document.getElementById('pet-panel');
+  if (!panel) return;
+
+  const debt = window.__debtDetails;
+  const ms = window.__milestoneDetails;
+  const cfi = window.__coastFiDetails;
+  const ef = window.__emergencyFundDetails;
+  if (!debt || !ms || !cfi || !ef) return;
+
+  const clamp = (n) => Math.max(0, Math.min(100, n == null || Number.isNaN(n) ? 50 : n));
+  const debtScore = clamp(debt.pct);
+  const milestoneScore = clamp(ms.pct != null ? ms.pct : (ms.total >= (ms.milestones[ms.milestones.length - 1] || Infinity) ? 100 : 50));
+  const coastScore = clamp(cfi.pctToTarget);
+  const emergencyScore = clamp(ef.pct);
+
+  const score = (debtScore + milestoneScore + coastScore + emergencyScore) / 4;
+  const mood = petMoodFor(score);
+  const seed = Math.floor(score) + new Date().getDate();
+  const quip = pickQuip(mood, seed);
+
+  window.__petDetails = {
+    score, mood, debtScore, milestoneScore, coastScore, emergencyScore,
+    breakdown: [
+      { label: 'Debt payoff pace', val: debtScore },
+      { label: 'Next milestone', val: milestoneScore },
+      { label: 'Coast FI progress', val: coastScore },
+      { label: 'Emergency fund', val: emergencyScore },
+    ],
+  };
+
+  panel.style.setProperty('--pet-glow', mood.glow);
+  panel.innerHTML = `
+    <div class="pet-avatar-wrap">${buildPetSVG(mood, score)}</div>
+    <div class="pet-info">
+      <div class="pet-eyebrow">Portfolio Pet</div>
+      <div class="pet-mood">${mood.label}</div>
+      <div class="pet-quip">${quip}</div>
+      <div class="pet-meter">
+        <div class="pet-meter-track"><div class="pet-meter-fill" style="width:${score.toFixed(0)}%;background:${mood.color}"></div></div>
+        <span class="pet-meter-val">${score.toFixed(0)}/100 wellness</span>
+      </div>
+    </div>
+    <span class="pet-hint">View details →</span>`;
+}
+
+function openPetModal() {
+  const d = window.__petDetails;
+  if (!d) return;
+  const { score, mood, breakdown } = d;
+
+  const rows = breakdown.map((b) => `
+    <tr>
+      <td>${b.label}</td>
+      <td>${b.val.toFixed(0)}%</td>
+      <td style="width:120px;">
+        <div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">
+          <div style="height:100%;width:${b.val.toFixed(0)}%;background:${mood.color};border-radius:3px;"></div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Portfolio Pet</span>
+      <span class="zone-badge" style="border-color:${mood.color};color:${mood.color};background:${mood.glow}">${mood.label}</span>
+      <span class="modal-mv">${score.toFixed(0)}/100</span>
+      <span class="modal-pl">wellness score</span>
+    </div>
+
+    <div class="modal-section">
+      <h3>What's feeding the mood</h3>
+      <table class="zone-table">
+        <thead><tr><th>Signal</th><th>Score</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="modal-empty" style="padding-top:12px;">
+        The pet averages your debt-payoff pace, progress to the next net-worth milestone,
+        Coast FI progress, and emergency-fund coverage into one score. Nudge any panel up and
+        it perks up next refresh.
+      </div>
+    </div>
+  `;
+
+  showModal();
+}
+
+document.getElementById('pet-panel').addEventListener('click', openPetModal);
+document.getElementById('pet-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPetModal(); }
+});
+
+/* =========================================================================
    COAST FI PROJECTION
    ========================================================================= */
 function renderCoastFI(currentPV) {
@@ -2133,6 +2354,7 @@ function render(data) {
   renderMilestones(savings.totalNetSavings, monthlyDCA);
   renderCoastFI(savings.totalNetSavings);
   renderEmergencyFund(savings.accounts);
+  renderPortfolioPet();
 
   // ---- live risk scores ----
   const holdingByAsset = {};

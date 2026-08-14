@@ -406,10 +406,10 @@
     pointer-events:none;
     transition:background .5s ease;
   }
-  .pet-avatar-wrap{flex:none;width:78px;height:78px;position:relative;}
+  .pet-avatar-wrap{flex:none;width:76px;height:92px;position:relative;}
   .pet-avatar-wrap svg{width:100%;height:100%;display:block;overflow:visible;}
-  .pet-bounce{animation:pet-bounce 2.6s ease-in-out infinite;transform-origin:50% 90%;}
-  @keyframes pet-bounce{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-3px) rotate(-1.5deg);}}
+  .pet-bounce{animation:pet-bounce 3.2s ease-in-out infinite;transform-origin:54px 154px;}
+  @keyframes pet-bounce{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-2px) rotate(-1deg);}}
   .pet-blink{animation:pet-blink 4.4s ease-in-out infinite;}
   @keyframes pet-blink{0%,92%,100%{transform:scaleY(1);}94%,96%{transform:scaleY(0.1);}}
   .pet-sparkle{animation:pet-sparkle 1.6s ease-in-out infinite;}
@@ -1469,7 +1469,7 @@ const PET_MOODS = [
     quips: ['All four gauges are glowing — keep this up.', 'Stacking sats and staying on track. Nice.', 'Not a single panel is lagging right now.'],
   },
   {
-    min: 62, key: 'happy', label: 'Doing well', color: '#22D3EE', glow: 'rgba(34,211,238,0.2)',
+    min: 62, key: 'happy', label: 'Doing well', color: '#4ADE80', glow: 'rgba(74,222,128,0.2)',
     quips: ['Steady progress across the board.', 'Comfortable pace — no red flags.', 'Ticking along nicely.'],
   },
   {
@@ -1496,54 +1496,126 @@ function pickQuip(mood, seed) {
   return mood.quips[idx];
 }
 
+// bonsai canopy/trunk palette per mood — separate from the UI accent color (mood.color)
+const BONSAI_PALETTE = {
+  ecstatic: { canopy: '#34D399', shade: '#0F9D6E', trunk: '#7A5230' },
+  happy:    { canopy: '#4ADE80', shade: '#1FA85C', trunk: '#7A5230' },
+  content:  { canopy: '#6FA85E', shade: '#4E7A3E', trunk: '#6E4C2E' },
+  uneasy:   { canopy: '#9CA34F', shade: '#71762E', trunk: '#5C4126' },
+  grumpy:   { canopy: '#9C7A3E', shade: '#6B5326', trunk: '#4A3620' },
+};
+
+// a fluffy multi-lobed foliage cloud built from overlapping circles, with a
+// darker underside layer for depth — used for the healthier mood stages
+function petCloudPad(cx, cy, scale, color, shade) {
+  const r = 11 * scale;
+  const lobes = [
+    [cx - 1.3 * r, cy + 0.3 * r, r * 0.85],
+    [cx - 0.5 * r, cy - 0.5 * r, r * 1.05],
+    [cx + 0.6 * r, cy - 0.3 * r, r * 1.0],
+    [cx + 1.4 * r, cy + 0.4 * r, r * 0.8],
+    [cx, cy + 0.7 * r, r * 0.9],
+  ];
+  const shadeC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y + r * 0.35}" r="${rr * 0.9}" fill="${shade}" opacity="0.55"/>`).join('');
+  const mainC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${color}"/>`).join('');
+  return shadeC + mainC;
+}
+
+// a thinner, patchier cluster — fewer/smaller/irregular lobes — for the wilted mood stages
+function petSparsePad(cx, cy, scale, color, shade) {
+  const r = 8 * scale;
+  const lobes = [
+    [cx - 0.8 * r, cy + 0.2 * r, r * 0.6],
+    [cx + 0.5 * r, cy - 0.4 * r, r * 0.7],
+    [cx + 0.2 * r, cy + 0.6 * r, r * 0.5],
+  ];
+  const shadeC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y + r * 0.3}" r="${rr * 0.9}" fill="${shade}" opacity="0.5"/>`).join('');
+  const mainC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${color}"/>`).join('');
+  return shadeC + mainC;
+}
+
 function buildPetSVG(mood, score) {
-  const c = mood.color;
-  const happy = score >= 62, ecstatic = score >= 82, low = score < 40, grumpy = score < 20;
+  const pal = BONSAI_PALETTE[mood.key] || BONSAI_PALETTE.content;
+  const face = '#F5EFE6';
+  let eyes, mouth, brows = '';
 
-  // mouth path varies by mood
-  let mouth;
-  if (ecstatic) mouth = `<path d="M38 62 Q50 78 62 62" stroke="#0A0B14" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
-  else if (happy) mouth = `<path d="M40 60 Q50 70 60 60" stroke="#0A0B14" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
-  else if (!low) mouth = `<path d="M41 63 Q50 66 59 63" stroke="#0A0B14" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-  else if (!grumpy) mouth = `<path d="M41 64 L59 64" stroke="#0A0B14" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-  else mouth = `<path d="M40 68 Q50 56 60 68" stroke="#0A0B14" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+  if (mood.key === 'ecstatic') {
+    eyes = `<circle cx="42" cy="168" r="3.2" fill="${face}"/><circle cx="66" cy="168" r="3.2" fill="${face}"/>`;
+    mouth = `<path d="M40 176 Q54 186 68 176" stroke="${face}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+  } else if (mood.key === 'happy') {
+    eyes = `<circle cx="42" cy="168" r="3" fill="${face}"/><circle cx="66" cy="168" r="3" fill="${face}"/>`;
+    mouth = `<path d="M41 176 Q54 183 67 176" stroke="${face}" stroke-width="2.3" fill="none" stroke-linecap="round"/>`;
+  } else if (mood.key === 'content') {
+    eyes = `<circle cx="42" cy="168" r="2.8" fill="${face}"/><circle cx="66" cy="168" r="2.8" fill="${face}"/>`;
+    mouth = `<path d="M42 178 Q54 180 66 178" stroke="${face}" stroke-width="2.1" fill="none" stroke-linecap="round"/>`;
+  } else if (mood.key === 'uneasy') {
+    eyes = `<ellipse cx="42" cy="169" rx="2.6" ry="3.2" fill="${face}"/><ellipse cx="66" cy="169" rx="2.6" ry="3.2" fill="${face}"/>`;
+    mouth = `<path d="M42 180 L66 180" stroke="${face}" stroke-width="2.1" fill="none" stroke-linecap="round"/>`;
+    brows = `<path d="M36 161 L46 165" stroke="${face}" stroke-width="1.8" stroke-linecap="round"/><path d="M72 161 L62 165" stroke="${face}" stroke-width="1.8" stroke-linecap="round"/>`;
+  } else {
+    eyes = `<path d="M38 167 L46 171" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/><path d="M70 167 L62 171" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/>`;
+    mouth = `<path d="M41 185 Q54 176 67 185" stroke="${face}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+    brows = `<path d="M35 159 L48 165" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/><path d="M73 159 L60 165" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/>`;
+  }
 
-  const eyebrows = low
-    ? `<path d="M30 34 L42 39" stroke="#0A0B14" stroke-width="2.6" stroke-linecap="round"/>
-       <path d="M70 34 L58 39" stroke="#0A0B14" stroke-width="2.6" stroke-linecap="round"/>`
-    : '';
+  let trunk, branch1, branch2 = '', canopy, blossoms = '';
+  if (mood.key === 'ecstatic') {
+    trunk = `<path d="M54 154 C 52 130, 62 118, 56 96 C 52 80, 40 74, 42 56" stroke="${pal.trunk}" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+    branch1 = `<path d="M50 118 C 34 112, 22 100, 20 88" stroke="${pal.trunk}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+    branch2 = `<path d="M50 100 C 66 92, 78 82, 82 70" stroke="${pal.trunk}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+    canopy = petCloudPad(42, 46, 1.3, pal.canopy, pal.shade) + petCloudPad(18, 84, 1.05, pal.canopy, pal.shade) + petCloudPad(84, 64, 1.05, pal.canopy, pal.shade);
+    blossoms = `<circle class="pet-sparkle" cx="30" cy="40" r="2.6" fill="#FBCFE8"/><circle class="pet-sparkle" cx="48" cy="36" r="2.6" fill="#FBCFE8"/><circle class="pet-sparkle" cx="10" cy="80" r="2.2" fill="#FBCFE8"/><circle class="pet-sparkle" cx="90" cy="60" r="2.2" fill="#FBCFE8"/>`;
+  } else if (mood.key === 'happy') {
+    trunk = `<path d="M54 154 C 52 132, 60 120, 55 100 C 52 86, 42 80, 44 64" stroke="${pal.trunk}" stroke-width="6.6" fill="none" stroke-linecap="round"/>`;
+    branch1 = `<path d="M51 120 C 36 115, 25 104, 23 93" stroke="${pal.trunk}" stroke-width="4.2" fill="none" stroke-linecap="round"/>`;
+    branch2 = `<path d="M50 104 C 64 97, 74 88, 78 77" stroke="${pal.trunk}" stroke-width="3.8" fill="none" stroke-linecap="round"/>`;
+    canopy = petCloudPad(44, 55, 1.1, pal.canopy, pal.shade) + petCloudPad(22, 89, 0.9, pal.canopy, pal.shade) + petCloudPad(79, 73, 0.9, pal.canopy, pal.shade);
+  } else if (mood.key === 'content') {
+    trunk = `<path d="M54 154 C 53 136, 58 126, 54 110 C 51 98, 45 94, 46 82" stroke="${pal.trunk}" stroke-width="6" fill="none" stroke-linecap="round"/>`;
+    branch1 = `<path d="M52 126 C 40 122, 31 113, 29 104" stroke="${pal.trunk}" stroke-width="3.8" fill="none" stroke-linecap="round"/>`;
+    branch2 = `<path d="M50 112 C 61 106, 69 99, 72 90" stroke="${pal.trunk}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
+    canopy = petCloudPad(46, 76, 0.85, pal.canopy, pal.shade) + petCloudPad(29, 103, 0.68, pal.canopy, pal.shade) + petCloudPad(72, 89, 0.68, pal.canopy, pal.shade);
+  } else if (mood.key === 'uneasy') {
+    trunk = `<path d="M54 154 C 55 140, 62 132, 58 120 C 55 111, 47 108, 49 98" stroke="${pal.trunk}" stroke-width="5.4" fill="none" stroke-linecap="round"/>`;
+    branch1 = `<path d="M55 132 C 45 132, 37 126, 34 119" stroke="${pal.trunk}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
+    branch2 = `<path d="M52 120 C 60 117, 66 112, 68 105" stroke="${pal.trunk}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    canopy = petSparsePad(49, 94, 1.0, pal.canopy, pal.shade) + petSparsePad(34, 119, 0.8, pal.canopy, pal.shade) + petSparsePad(68, 103, 0.8, pal.canopy, pal.shade);
+  } else {
+    trunk = `<path d="M54 154 C 58 144, 68 138, 66 126 C 64 116, 54 114, 50 106" stroke="${pal.trunk}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+    branch1 = `<path d="M58 138 C 50 140, 43 136, 40 130" stroke="${pal.trunk}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    canopy = petSparsePad(50, 104, 0.75, pal.canopy, pal.shade) + petSparsePad(40, 129, 0.55, pal.canopy, pal.shade);
+  }
 
-  const antenna = ecstatic
-    ? `<line x1="50" y1="8" x2="50" y2="-4" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
-       <circle class="pet-sparkle" cx="50" cy="-8" r="4" fill="${c}"/>`
-    : '';
+  let fallen = '';
+  if (mood.key === 'uneasy') {
+    fallen = `<ellipse cx="90" cy="184" rx="5" ry="2.4" fill="${pal.canopy}" opacity="0.8" transform="rotate(-20 90 184)"/>`;
+  } else if (mood.key === 'grumpy') {
+    fallen = `<ellipse cx="90" cy="188" rx="5" ry="2.2" fill="${pal.canopy}" opacity="0.85" transform="rotate(15 90 188)"/>
+      <ellipse cx="18" cy="186" rx="4.5" ry="2" fill="${pal.canopy}" opacity="0.7" transform="rotate(-25 18 186)"/>
+      <ellipse cx="100" cy="178" rx="4" ry="2" fill="${pal.canopy}" opacity="0.6" transform="rotate(35 100 178)"/>`;
+  }
 
-  const tear = grumpy
-    ? `<path d="M28 46 q-3 6 0 10 q3 -1 0 -10" fill="#7DD3FC"/>` : '';
+  const tray = `<path d="M18 156 L90 156 L84 178 Q54 184 24 178 Z" fill="#5B4636"/>
+    <rect x="14" y="150" width="80" height="9" rx="2.5" fill="#3F3226"/>
+    <ellipse cx="54" cy="160" rx="34" ry="4" fill="#2E2419" opacity="0.5"/>`;
 
   return `
-    <svg viewBox="-14 -14 128 128" xmlns="http://www.w3.org/2000/svg">
-      ${antenna}
-      <ellipse cx="50" cy="55" rx="46" ry="42" fill="${c}" opacity="0.16"/>
+    <svg viewBox="-16 -14 184 220" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="54" cy="88" rx="64" ry="70" fill="${mood.color}" opacity="0.14"/>
       <g class="pet-bounce">
-        <ellipse cx="50" cy="56" rx="38" ry="34" fill="${c}"/>
-        <ellipse cx="50" cy="56" rx="38" ry="34" fill="url(#pet-sheen)"/>
-        <g class="pet-blink">
-          <circle cx="36" cy="48" r="8.5" fill="#0A0B14"/>
-          <circle cx="64" cy="48" r="8.5" fill="#0A0B14"/>
-          <circle cx="33.5" cy="45" r="2.4" fill="#fff"/>
-          <circle cx="61.5" cy="45" r="2.4" fill="#fff"/>
-        </g>
-        ${eyebrows}
-        ${mouth}
-        ${tear}
+        ${canopy}
+        ${blossoms}
+        ${branch1}
+        ${branch2}
+        ${trunk}
       </g>
-      <defs>
-        <radialGradient id="pet-sheen" cx="35%" cy="28%" r="60%">
-          <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
-          <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
+      ${fallen}
+      ${tray}
+      <g class="pet-blink">
+        ${brows}
+        ${eyes}
+      </g>
+      ${mouth}
     </svg>`;
 }
 

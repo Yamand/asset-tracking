@@ -1613,7 +1613,7 @@ function renderPortfolioPet() {
   const coastScore = clamp(cfi.pctToTarget);
   const emergencyScore = clamp(ef.pct);
 
-  const score = (debtScore + milestoneScore + coastScore + emergencyScore) / 4;
+  const score = (debtScore * 0.35) + (milestoneScore * 0.10) + (coastScore * 0.20) + (emergencyScore * 0.35);
   const mood = petMoodFor(score);
   const seed = Math.floor(score) + new Date().getDate();
   const quip = pickQuip(mood, seed);
@@ -1621,10 +1621,10 @@ function renderPortfolioPet() {
   window.__petDetails = {
     score, mood, debtScore, milestoneScore, coastScore, emergencyScore,
     breakdown: [
-      { label: 'Debt payoff pace', val: debtScore },
-      { label: 'Next milestone', val: milestoneScore },
-      { label: 'Coast FI progress', val: coastScore },
-      { label: 'Emergency fund', val: emergencyScore },
+      { label: 'Debt payoff pace', val: debtScore, weight: 35 },
+      { label: 'Next milestone', val: milestoneScore, weight: 10 },
+      { label: 'Coast FI progress', val: coastScore, weight: 20 },
+      { label: 'Emergency fund', val: emergencyScore, weight: 35 },
     ],
   };
 
@@ -1650,7 +1650,7 @@ function openPetModal() {
 
   const rows = breakdown.map((b) => `
     <tr>
-      <td>${b.label}</td>
+      <td>${b.label} <span style="color:var(--ink-faint);">(${b.weight}%)</span></td>
       <td>${b.val.toFixed(0)}%</td>
       <td style="width:120px;">
         <div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">
@@ -1661,7 +1661,7 @@ function openPetModal() {
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-head">
-      <span class="modal-asset">Portfolio Pet</span>
+      <span class="modal-asset">Wellness Core</span>
       <span class="zone-badge" style="border-color:${mood.color};color:${mood.color};background:${mood.glow}">${mood.label}</span>
       <span class="modal-mv">${score.toFixed(0)}/100</span>
       <span class="modal-pl">wellness score</span>
@@ -1674,9 +1674,9 @@ function openPetModal() {
         <tbody>${rows}</tbody>
       </table>
       <div class="modal-empty" style="padding-top:12px;">
-        The pet averages your debt-payoff pace, progress to the next net-worth milestone,
-        Coast FI progress, and emergency-fund coverage into one score. Nudge any panel up and
-        it perks up next refresh.
+        The score is a weighted blend: emergency-fund coverage and debt-payoff pace each
+        count for 35%, Coast FI progress for 20%, and progress to the next net-worth
+        milestone for 10%. Nudge any panel up and it perks up next refresh.
       </div>
     </div>
   `;

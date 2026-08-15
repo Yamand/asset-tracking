@@ -409,28 +409,34 @@
     transform-origin:8% 50%;
   }
   @keyframes pet-panel-glow{0%,100%{opacity:.75;transform:scale(1);}50%{opacity:1;transform:scale(1.08);}}
-  .pet-avatar-wrap{flex:none;width:76px;height:92px;position:relative;}
+  .pet-avatar-wrap{flex:none;width:88px;height:96px;position:relative;}
   .pet-avatar-wrap svg{width:100%;height:100%;display:block;overflow:visible;}
-  .pet-glow-pulse{animation:pet-glow-pulse 4.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%;}
-  @keyframes pet-glow-pulse{0%,100%{opacity:.14;transform:scale(1);}50%{opacity:.26;transform:scale(1.08);}}
-  .pet-sway{transform-box:fill-box;transform-origin:50% 100%;animation:pet-sway 5.2s ease-in-out infinite,pet-breathe 3.8s ease-in-out infinite;}
-  @keyframes pet-sway{0%,100%{transform:rotate(0deg);}25%{transform:rotate(-1.2deg);}50%{transform:rotate(.8deg);}75%{transform:rotate(-.6deg);}}
-  @keyframes pet-breathe{0%,100%{translate:0 0;}50%{translate:0 -2.5px;}}
-  .pet-life{transform-box:fill-box;transform-origin:50% 100%;animation:pet-life 3.2s ease-in-out infinite;}
-  @keyframes pet-life{0%,100%{transform:scale(1);}50%{transform:scale(1.015);}}
-  .pet-blink{transform-box:fill-box;transform-origin:50% 50%;animation:pet-blink 6.2s ease-in-out infinite;}
-  @keyframes pet-blink{0%,86%{transform:scaleY(1);}88%{transform:scaleY(.08);}89.5%,100%{transform:scaleY(1);}}
-  .pet-sparkle{transform-box:fill-box;transform-origin:50% 50%;animation:pet-sparkle 2.4s ease-in-out infinite;will-change:transform,opacity;}
-  .pet-sparkle:nth-of-type(1){animation-delay:-.4s;}
-  .pet-sparkle:nth-of-type(2){animation-delay:-1.3s;}
-  .pet-sparkle:nth-of-type(3){animation-delay:-1.9s;}
-  .pet-sparkle:nth-of-type(4){animation-delay:-.8s;}
-  @keyframes pet-sparkle{0%,100%{opacity:.15;transform:scale(.65) rotate(0deg);}35%{opacity:.35;transform:scale(.85) rotate(15deg);}50%{opacity:1;transform:scale(1.35) rotate(45deg);}65%{opacity:.35;transform:scale(.9) rotate(70deg);}}
-  @media (prefers-reduced-motion:reduce){.pet-sway,.pet-life,.pet-blink,.pet-sparkle,.pet-mote-rise,.pet-mote-fall,.pet-glow-pulse{animation:none!important;}}
-  .pet-mote-rise{animation-name:pet-mote-rise;animation-timing-function:ease-out;animation-iteration-count:infinite;transform-box:fill-box;transform-origin:50% 50%;}
-  @keyframes pet-mote-rise{0%{transform:translateY(0) scale(.5);opacity:0;}12%{opacity:.9;}100%{transform:translateY(-64px) scale(1.1);opacity:0;}}
-  .pet-mote-fall{animation-name:pet-mote-fall;animation-timing-function:ease-in;animation-iteration-count:infinite;transform-box:fill-box;transform-origin:50% 50%;}
-  @keyframes pet-mote-fall{0%{transform:translateY(-8px) scale(.9);opacity:0;}18%{opacity:.7;}100%{transform:translateY(54px) scale(.6);opacity:0;}}
+  @keyframes pet-pulse-big{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+  @keyframes pet-pulse-mid{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+  @keyframes pet-pulse-low{0%,100%{transform:scale(1);}50%{transform:scale(1.02);}}
+  .pet-pulse-ecstatic{transform-box:fill-box;transform-origin:50% 50%;animation:pet-pulse-big 1.8s ease-in-out infinite;}
+  .pet-pulse-happy{transform-box:fill-box;transform-origin:50% 50%;animation:pet-pulse-mid 2.4s ease-in-out infinite;}
+  .pet-pulse-content{transform-box:fill-box;transform-origin:50% 50%;animation:pet-pulse-low 3.2s ease-in-out infinite;}
+  .pet-pulse-uneasy{transform-box:fill-box;transform-origin:50% 50%;animation:pet-pulse-low 4.4s ease-in-out infinite;}
+  .pet-pulse-grumpy{transform-box:fill-box;transform-origin:50% 50%;animation:pet-pulse-low 6s ease-in-out infinite;}
+  @keyframes pet-orbit{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .pet-o-e1{animation:pet-orbit 2.6s linear infinite;transform-box:fill-box;transform-origin:-36px 0;}
+  .pet-o-e2{animation:pet-orbit 3.4s linear infinite reverse;transform-box:fill-box;transform-origin:32px -10px;}
+  .pet-o-e3{animation:pet-orbit 3s linear infinite;transform-box:fill-box;transform-origin:-8px 34px;}
+  .pet-o-e4{animation:pet-orbit 3.8s linear infinite reverse;transform-box:fill-box;transform-origin:16px -32px;}
+  .pet-o-e5{animation:pet-orbit 2.2s linear infinite;transform-box:fill-box;transform-origin:-30px 24px;}
+  .pet-o-h1{animation:pet-orbit 3.6s linear infinite;transform-box:fill-box;transform-origin:-32px 0;}
+  .pet-o-h2{animation:pet-orbit 4.4s linear infinite reverse;transform-box:fill-box;transform-origin:28px -8px;}
+  .pet-o-h3{animation:pet-orbit 4s linear infinite;transform-box:fill-box;transform-origin:-4px 30px;}
+  .pet-o-h4{animation:pet-orbit 5s linear infinite reverse;transform-box:fill-box;transform-origin:14px -28px;}
+  .pet-o-c1{animation:pet-orbit 5.4s linear infinite;transform-box:fill-box;transform-origin:-28px 0;}
+  .pet-o-c2{animation:pet-orbit 6.4s linear infinite reverse;transform-box:fill-box;transform-origin:26px -6px;}
+  .pet-o-c3{animation:pet-orbit 6s linear infinite;transform-box:fill-box;transform-origin:-2px 26px;}
+  .pet-o-u1{animation:pet-orbit 8s linear infinite;transform-box:fill-box;transform-origin:-24px -4px;}
+  .pet-o-u2{animation:pet-orbit 9.5s linear infinite reverse;transform-box:fill-box;transform-origin:22px 6px;}
+  @keyframes pet-drift{0%{transform:translate(0,0);opacity:.7;}50%{transform:translate(6px,-10px);opacity:.3;}100%{transform:translate(0,0);opacity:.7;}}
+  .pet-drift-g{animation:pet-drift 5s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%;}
+  @media (prefers-reduced-motion:reduce){[class^="pet-pulse-"],[class^="pet-o-"],.pet-drift-g,.pet-panel::before{animation:none!important;}}
   .pet-info{flex:1;min-width:190px;position:relative;}
   .pet-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:3px;}
   .pet-mood{font-family:var(--sans);font-weight:700;font-size:18px;color:var(--ink);line-height:1.2;}
@@ -1513,128 +1519,81 @@ function pickQuip(mood, seed) {
   return mood.quips[idx];
 }
 
-// bonsai canopy/trunk palette per mood — separate from the UI accent color (mood.color)
-const BONSAI_PALETTE = {
-  ecstatic: { canopy: '#34D399', shade: '#0F9D6E', trunk: '#7A5230' },
-  happy:    { canopy: '#4ADE80', shade: '#1FA85C', trunk: '#7A5230' },
-  content:  { canopy: '#6FA85E', shade: '#4E7A3E', trunk: '#6E4C2E' },
-  uneasy:   { canopy: '#9CA34F', shade: '#71762E', trunk: '#5C4126' },
-  grumpy:   { canopy: '#9C7A3E', shade: '#6B5326', trunk: '#4A3620' },
+// particle-orb config per mood — particle count/speed/brightness scale down
+// as wellness drops, echoing the same mood tiers as PET_MOODS
+const ORB_CONFIG = {
+  ecstatic: {
+    r: 20, cy: 65,
+    eyes: `<circle cx="-6" cy="-4" r="3" fill="#0A0B14"/><circle cx="6" cy="-4" r="3" fill="#0A0B14"/>`,
+    mouth: `<path d="M-8 6 Q0 13 8 6" stroke="#0A0B14" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    brows: '',
+    particles: [
+      { cx: 36, cy: 0, r: 4.5, color: '#22D3EE', cls: 'pet-o-e1' },
+      { cx: -32, cy: 10, r: 4, color: '#F472B6', cls: 'pet-o-e2' },
+      { cx: 8, cy: -34, r: 3.6, color: '#FBBF24', cls: 'pet-o-e3' },
+      { cx: -16, cy: 32, r: 4.2, color: '#A78BFA', cls: 'pet-o-e4' },
+      { cx: 30, cy: -24, r: 3, color: '#FDE68A', cls: 'pet-o-e5' },
+    ],
+  },
+  happy: {
+    r: 18, cy: 65,
+    eyes: `<circle cx="-6" cy="-3" r="2.8" fill="#0A0B14"/><circle cx="6" cy="-3" r="2.8" fill="#0A0B14"/>`,
+    mouth: `<path d="M-7 6 Q0 11 7 6" stroke="#0A0B14" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
+    brows: '',
+    particles: [
+      { cx: 32, cy: 0, r: 4, color: '#5EEAD4', cls: 'pet-o-h1' },
+      { cx: -28, cy: 8, r: 3.6, color: '#FDE68A', cls: 'pet-o-h2' },
+      { cx: 4, cy: -30, r: 3.2, color: '#BEF264', cls: 'pet-o-h3' },
+      { cx: -14, cy: 28, r: 3.6, color: '#7DD3FC', cls: 'pet-o-h4' },
+    ],
+  },
+  content: {
+    r: 17, cy: 65,
+    eyes: `<circle cx="-5.5" cy="-2" r="2.6" fill="#0A0B14"/><circle cx="5.5" cy="-2" r="2.6" fill="#0A0B14"/>`,
+    mouth: `<path d="M-6 7 L6 7" stroke="#0A0B14" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+    brows: '',
+    particles: [
+      { cx: 28, cy: 0, r: 3.6, color: '#C4B5FD', cls: 'pet-o-c1' },
+      { cx: -26, cy: 6, r: 3.2, color: '#93C5FD', cls: 'pet-o-c2' },
+      { cx: 2, cy: -26, r: 2.8, color: '#DDD6FE', cls: 'pet-o-c3' },
+    ],
+  },
+  uneasy: {
+    r: 16, cy: 65,
+    eyes: `<ellipse cx="-5.5" cy="-1" rx="2.2" ry="2.8" fill="#0A0B14"/><ellipse cx="5.5" cy="-1" rx="2.2" ry="2.8" fill="#0A0B14"/>`,
+    mouth: `<path d="M-6 8 L6 8" stroke="#0A0B14" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+    brows: `<path d="M-9 -8 L-4 -5" stroke="#0A0B14" stroke-width="1.4" stroke-linecap="round"/><path d="M9 -8 L4 -5" stroke="#0A0B14" stroke-width="1.4" stroke-linecap="round"/>`,
+    particles: [
+      { cx: 24, cy: 4, r: 3.2, color: '#FDE68A', cls: 'pet-o-u1' },
+      { cx: -22, cy: -6, r: 2.6, color: '#FCD34D', cls: 'pet-o-u2' },
+    ],
+  },
+  grumpy: {
+    r: 14, cy: 68,
+    eyes: `<path d="M-8 -3 L-3 -1" stroke="#0A0B14" stroke-width="1.4" stroke-linecap="round"/><path d="M8 -3 L3 -1" stroke="#0A0B14" stroke-width="1.4" stroke-linecap="round"/>`,
+    mouth: `<path d="M-6 9 Q0 4 6 9" stroke="#0A0B14" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+    brows: `<path d="M-8 -8 L-2 -5" stroke="#0A0B14" stroke-width="1.4" stroke-linecap="round"/><path d="M8 -8 L2 -5" stroke="#0A0B14" stroke-width="1.4" stroke-linecap="round"/>`,
+    particles: [
+      { cx: 20, cy: 20, r: 2.8, color: '#FECDD3', cls: 'pet-drift-g', opacity: 0.7 },
+    ],
+  },
 };
 
-// a fluffy multi-lobed foliage cloud built from overlapping circles, with a
-// darker underside layer for depth — used for the healthier mood stages
-function petCloudPad(cx, cy, scale, color, shade) {
-  const r = 11 * scale;
-  const lobes = [
-    [cx - 1.3 * r, cy + 0.3 * r, r * 0.85],
-    [cx - 0.5 * r, cy - 0.5 * r, r * 1.05],
-    [cx + 0.6 * r, cy - 0.3 * r, r * 1.0],
-    [cx + 1.4 * r, cy + 0.4 * r, r * 0.8],
-    [cx, cy + 0.7 * r, r * 0.9],
-  ];
-  const shadeC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y + r * 0.35}" r="${rr * 0.9}" fill="${shade}" opacity="0.55"/>`).join('');
-  const mainC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${color}"/>`).join('');
-  return shadeC + mainC;
-}
-
-// a thinner, patchier cluster — fewer/smaller/irregular lobes — for the wilted mood stages
-function petSparsePad(cx, cy, scale, color, shade) {
-  const r = 8 * scale;
-  const lobes = [
-    [cx - 0.8 * r, cy + 0.2 * r, r * 0.6],
-    [cx + 0.5 * r, cy - 0.4 * r, r * 0.7],
-    [cx + 0.2 * r, cy + 0.6 * r, r * 0.5],
-  ];
-  const shadeC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y + r * 0.3}" r="${rr * 0.9}" fill="${shade}" opacity="0.5"/>`).join('');
-  const mainC = lobes.map(([x, y, rr]) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${color}"/>`).join('');
-  return shadeC + mainC;
-}
-
 function buildPetSVG(mood, score) {
-  const pal = BONSAI_PALETTE[mood.key] || BONSAI_PALETTE.content;
-  const face = '#F5EFE6';
-  let eyes, mouth, brows = '';
-
-  if (mood.key === 'ecstatic') {
-    eyes = `<circle cx="42" cy="168" r="3.2" fill="${face}"/><circle cx="66" cy="168" r="3.2" fill="${face}"/>`;
-    mouth = `<path d="M40 176 Q54 186 68 176" stroke="${face}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
-  } else if (mood.key === 'happy') {
-    eyes = `<circle cx="42" cy="168" r="3" fill="${face}"/><circle cx="66" cy="168" r="3" fill="${face}"/>`;
-    mouth = `<path d="M41 176 Q54 183 67 176" stroke="${face}" stroke-width="2.3" fill="none" stroke-linecap="round"/>`;
-  } else if (mood.key === 'content') {
-    eyes = `<circle cx="42" cy="168" r="2.8" fill="${face}"/><circle cx="66" cy="168" r="2.8" fill="${face}"/>`;
-    mouth = `<path d="M42 178 Q54 180 66 178" stroke="${face}" stroke-width="2.1" fill="none" stroke-linecap="round"/>`;
-  } else if (mood.key === 'uneasy') {
-    eyes = `<ellipse cx="42" cy="169" rx="2.6" ry="3.2" fill="${face}"/><ellipse cx="66" cy="169" rx="2.6" ry="3.2" fill="${face}"/>`;
-    mouth = `<path d="M42 180 L66 180" stroke="${face}" stroke-width="2.1" fill="none" stroke-linecap="round"/>`;
-    brows = `<path d="M36 161 L46 165" stroke="${face}" stroke-width="1.8" stroke-linecap="round"/><path d="M72 161 L62 165" stroke="${face}" stroke-width="1.8" stroke-linecap="round"/>`;
-  } else {
-    eyes = `<path d="M38 167 L46 171" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/><path d="M70 167 L62 171" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/>`;
-    mouth = `<path d="M41 185 Q54 176 67 185" stroke="${face}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
-    brows = `<path d="M35 159 L48 165" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/><path d="M73 159 L60 165" stroke="${face}" stroke-width="2.2" stroke-linecap="round"/>`;
-  }
-
-  let trunk, branch1, branch2 = '', canopy, blossoms = '';
-  if (mood.key === 'ecstatic') {
-    trunk = `<path d="M54 154 C 52 130, 62 118, 56 96 C 52 80, 40 74, 42 56" stroke="${pal.trunk}" stroke-width="7" fill="none" stroke-linecap="round"/>`;
-    branch1 = `<path d="M50 118 C 34 112, 22 100, 20 88" stroke="${pal.trunk}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
-    branch2 = `<path d="M50 100 C 66 92, 78 82, 82 70" stroke="${pal.trunk}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
-    canopy = petCloudPad(42, 46, 1.3, pal.canopy, pal.shade) + petCloudPad(18, 84, 1.05, pal.canopy, pal.shade) + petCloudPad(84, 64, 1.05, pal.canopy, pal.shade);
-    blossoms = `<circle class="pet-sparkle" cx="30" cy="40" r="2.6" fill="#FBCFE8"/><circle class="pet-sparkle" cx="48" cy="36" r="2.6" fill="#FBCFE8"/><circle class="pet-sparkle" cx="10" cy="80" r="2.2" fill="#FBCFE8"/><circle class="pet-sparkle" cx="90" cy="60" r="2.2" fill="#FBCFE8"/>`;
-  } else if (mood.key === 'happy') {
-    trunk = `<path d="M54 154 C 52 132, 60 120, 55 100 C 52 86, 42 80, 44 64" stroke="${pal.trunk}" stroke-width="6.6" fill="none" stroke-linecap="round"/>`;
-    branch1 = `<path d="M51 120 C 36 115, 25 104, 23 93" stroke="${pal.trunk}" stroke-width="4.2" fill="none" stroke-linecap="round"/>`;
-    branch2 = `<path d="M50 104 C 64 97, 74 88, 78 77" stroke="${pal.trunk}" stroke-width="3.8" fill="none" stroke-linecap="round"/>`;
-    canopy = petCloudPad(44, 55, 1.1, pal.canopy, pal.shade) + petCloudPad(22, 89, 0.9, pal.canopy, pal.shade) + petCloudPad(79, 73, 0.9, pal.canopy, pal.shade);
-  } else if (mood.key === 'content') {
-    trunk = `<path d="M54 154 C 53 136, 58 126, 54 110 C 51 98, 45 94, 46 82" stroke="${pal.trunk}" stroke-width="6" fill="none" stroke-linecap="round"/>`;
-    branch1 = `<path d="M52 126 C 40 122, 31 113, 29 104" stroke="${pal.trunk}" stroke-width="3.8" fill="none" stroke-linecap="round"/>`;
-    branch2 = `<path d="M50 112 C 61 106, 69 99, 72 90" stroke="${pal.trunk}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
-    canopy = petCloudPad(46, 76, 0.85, pal.canopy, pal.shade) + petCloudPad(29, 103, 0.68, pal.canopy, pal.shade) + petCloudPad(72, 89, 0.68, pal.canopy, pal.shade);
-  } else if (mood.key === 'uneasy') {
-    trunk = `<path d="M54 154 C 55 140, 62 132, 58 120 C 55 111, 47 108, 49 98" stroke="${pal.trunk}" stroke-width="5.4" fill="none" stroke-linecap="round"/>`;
-    branch1 = `<path d="M55 132 C 45 132, 37 126, 34 119" stroke="${pal.trunk}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
-    branch2 = `<path d="M52 120 C 60 117, 66 112, 68 105" stroke="${pal.trunk}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-    canopy = petSparsePad(49, 94, 1.0, pal.canopy, pal.shade) + petSparsePad(34, 119, 0.8, pal.canopy, pal.shade) + petSparsePad(68, 103, 0.8, pal.canopy, pal.shade);
-  } else {
-    trunk = `<path d="M54 154 C 58 144, 68 138, 66 126 C 64 116, 54 114, 50 106" stroke="${pal.trunk}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
-    branch1 = `<path d="M58 138 C 50 140, 43 136, 40 130" stroke="${pal.trunk}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-    canopy = petSparsePad(50, 104, 0.75, pal.canopy, pal.shade) + petSparsePad(40, 129, 0.55, pal.canopy, pal.shade);
-  }
-
-  let fallen = '';
-  if (mood.key === 'uneasy') {
-    fallen = `<ellipse cx="90" cy="184" rx="5" ry="2.4" fill="${pal.canopy}" opacity="0.8" transform="rotate(-20 90 184)"/>`;
-  } else if (mood.key === 'grumpy') {
-    fallen = `<ellipse cx="90" cy="188" rx="5" ry="2.2" fill="${pal.canopy}" opacity="0.85" transform="rotate(15 90 188)"/>
-      <ellipse cx="18" cy="186" rx="4.5" ry="2" fill="${pal.canopy}" opacity="0.7" transform="rotate(-25 18 186)"/>
-      <ellipse cx="100" cy="178" rx="4" ry="2" fill="${pal.canopy}" opacity="0.6" transform="rotate(35 100 178)"/>`;
-  }
-
-  const tray = `<path d="M18 156 L90 156 L84 178 Q54 184 24 178 Z" fill="#5B4636"/>
-    <rect x="14" y="150" width="80" height="9" rx="2.5" fill="#3F3226"/>
-    <ellipse cx="54" cy="160" rx="34" ry="4" fill="#2E2419" opacity="0.5"/>`;
+  const cfg = ORB_CONFIG[mood.key] || ORB_CONFIG.content;
+  const particlesHTML = cfg.particles.map((p) => `<g class="${p.cls}"><circle cx="${p.cx}" cy="${p.cy}" r="${p.r}" fill="${p.color}"${p.opacity ? ` opacity="${p.opacity}"` : ''}/></g>`).join('');
 
   return `
-    <svg viewBox="-16 -14 184 220" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="54" cy="88" rx="64" ry="70" fill="${mood.color}" opacity="0.14"/>
-      <g class="pet-life">
-        <g class="pet-sway">
-          ${canopy}
-          ${blossoms}
-          ${branch1}
-          ${branch2}
-          ${trunk}
+    <svg viewBox="0 0 120 130" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(60 ${cfg.cy})">
+        <g class="pet-pulse-${mood.key}">
+          <circle r="${cfg.r}" fill="${mood.color}"/>
+          ${cfg.brows}
+          ${cfg.eyes}
+          ${cfg.mouth}
         </g>
-        ${fallen}
+        ${particlesHTML}
       </g>
-      ${tray}
-      <g class="pet-blink">
-        ${brows}
-        ${eyes}
-      </g>
-      ${mouth}
     </svg>`;
 }
 
@@ -2206,651 +2165,4 @@ function openDebtModal() {
     <div class="modal-section">
       <h3>Month-by-month</h3>
       <div class="modal-log-wrap"><table>
-        <thead><tr><th>Month</th><th>Paid to date</th><th>Remaining</th></tr></thead>
-        <tbody>${timeline.map((t) => `
-          <tr>
-            <td>${t.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</td>
-            <td>${fmtUSD(t.paid, 0)}</td>
-            <td>${fmtUSD(t.remaining, 0)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>
-    </div>
-  `;
-
-  showModal();
-}
-
-/* =========================================================================
-   MILESTONE DETAIL MODAL
-   ========================================================================= */
-function openMilestoneModal() {
-  const d = window.__milestoneDetails;
-  if (!d) return;
-  const { total, monthlyDCA, milestones, reachedCount, next, remaining, monthsToGo } = d;
-
-  const rows = milestones.map((m) => {
-    const reached = total >= m;
-    const isNext = m === next;
-    const status = reached ? 'Reached' : (isNext ? 'Next' : 'Locked');
-    const color = reached ? 'var(--gain)' : (isNext ? 'var(--accent2)' : 'var(--ink-faint)');
-    const icon = reached ? '✓' : (isNext ? '→' : '·');
-    return `
-      <tr>
-        <td>${icon} ${fmtUSD(m, 0)}</td>
-        <td style="color:${color}">${status}</td>
-      </tr>`;
-  }).join('');
-
-  document.getElementById('modal-body').innerHTML = `
-    <div class="modal-head">
-      <span class="modal-asset">Net Worth Milestones</span>
-      <span class="modal-mv">${reachedCount}/${milestones.length}</span>
-      <span class="modal-pl">reached</span>
-    </div>
-
-    <div class="modal-stats">
-      <div><span class="k">Current net worth</span><span class="v">${fmtUSD(total)}</span></div>
-      <div><span class="k">Next milestone</span><span class="v">${next != null ? fmtUSD(next, 0) : '—'}</span></div>
-      <div><span class="k">Remaining</span><span class="v">${next != null ? fmtUSD(remaining, 0) : '—'}</span></div>
-      <div><span class="k">DCA pace</span><span class="v">${fmtUSD(monthlyDCA, 0)}/mo</span></div>
-      <div><span class="k">Est. time to next</span><span class="v">${monthsToGo != null ? monthsToGo + ' mo' : '—'}</span></div>
-    </div>
-
-    <div class="modal-section">
-      <h3>Milestone ladder</h3>
-      <div class="modal-log-wrap"><table>
-        <thead><tr><th>Milestone</th><th>Status</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-      <div class="modal-empty" style="padding-top:12px;">
-        Estimate uses your current live DCA pace (${fmtUSD(monthlyDCA, 0)}/mo) — it doesn't yet account for
-        cash/bank savings growth, so actual time-to-milestone will likely be a bit faster.
-      </div>
-    </div>
-  `;
-
-  showModal();
-}
-
-/* =========================================================================
-   EMERGENCY FUND DETAIL MODAL
-   ========================================================================= */
-function openEmergencyFundModal() {
-  const d = window.__emergencyFundDetails;
-  if (!d) return;
-  const { total, target, remaining, monthsCovered, rows } = d;
-
-  const rowsHtml = (rows || []).map((a) => `
-    <tr>
-      <td>${a.account}${a.currency ? ' (' + a.currency + ')' : ''}</td>
-      <td>${a.balanceNative != null ? a.balanceNative.toLocaleString() : '—'}</td>
-      <td>${fmtUSD(a.balanceUSD || 0)}</td>
-    </tr>`).join('') || '<tr><td colspan="3">No MAYBANK rows found in sheet.</td></tr>';
-
-  document.getElementById('modal-body').innerHTML = `
-    <div class="modal-head">
-      <span class="modal-asset">Emergency Fund</span>
-      <span class="modal-mv">${fmtUSD(total)}</span>
-      <span class="modal-pl">${monthsCovered.toFixed(1)} mo covered</span>
-    </div>
-
-    <div class="modal-stats">
-      <div><span class="k">Current balance</span><span class="v">${fmtUSD(total)}</span></div>
-      <div><span class="k">Target (${EMERGENCY_FUND_MONTHS_TARGET} mo)</span><span class="v">${fmtUSD(target, 0)}</span></div>
-      <div><span class="k">Remaining</span><span class="v">${fmtUSD(remaining, 0)}</span></div>
-      <div><span class="k">Monthly essentials</span><span class="v">${fmtUSD(EMERGENCY_FUND_MONTHLY_ESSENTIALS, 0)}</span></div>
-    </div>
-
-    <div class="modal-section">
-      <h3>MAYBANK accounts</h3>
-      <div class="modal-log-wrap"><table>
-        <thead><tr><th>Account</th><th>Native</th><th>USD</th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table></div>
-      <div class="modal-empty" style="padding-top:12px;">
-        Target assumes ${EMERGENCY_FUND_MONTHS_TARGET} months of essential living costs at
-        ${fmtUSD(EMERGENCY_FUND_MONTHLY_ESSENTIALS, 0)}/mo — adjust <code>EMERGENCY_FUND_MONTHLY_ESSENTIALS</code>
-        in the script if your baseline changes.
-      </div>
-    </div>
-  `;
-
-  showModal();
-}
-
-/* =========================================================================
-   COAST FI DETAIL MODAL
-   ========================================================================= */
-function openCoastFIModal() {
-  const d = window.__coastFiDetails;
-  if (!d) return;
-  const { pv, fv, r, yearsToTarget, coastDate, pctToTarget } = d;
-
-  const reached = pv >= fv;
-  const yearsLabel = reached ? 'Reached' : `${yearsToTarget.toFixed(1)} yrs`;
-  const dateLabel = reached ? 'Now' : (coastDate
-    ? coastDate.toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })
-    : '—');
-
-  // growth trajectory rows, year by year, PV compounding at r (no further contributions)
-  const rows = [];
-  const maxYears = Math.min(40, reached ? 0 : Math.ceil(yearsToTarget) + 1);
-  for (let y = 0; y <= maxYears; y++) {
-    const val = pv * Math.pow(1 + r, y);
-    rows.push({ y, val, hit: val >= fv });
-  }
-
-  const rowsHTML = rows.map((row) => `
-    <tr>
-      <td>${row.y === 0 ? 'Today' : `+${row.y}y`}</td>
-      <td>${fmtUSD(row.val)}</td>
-      <td>${row.hit ? '<span style="color:var(--gain)">✓ target reached</span>' : ((row.val / fv * 100).toFixed(0) + '%')}</td>
-    </tr>`).join('');
-
-  document.getElementById('modal-body').innerHTML = `
-    <div class="modal-head">
-      <span class="modal-asset">Coast FI</span>
-      <span class="modal-mv">${yearsLabel}</span>
-      <span class="modal-pl">est. ${dateLabel}</span>
-    </div>
-
-    <div class="modal-stats">
-      <div><span class="k">Current net worth</span><span class="v">${fmtUSD(pv)}</span></div>
-      <div><span class="k">Coast FI target</span><span class="v">${fmtUSD(fv, 0)}</span></div>
-      <div><span class="k">Progress to target</span><span class="v">${pctToTarget.toFixed(1)}%</span></div>
-      <div><span class="k">Assumed return</span><span class="v">${(r * 100).toFixed(0)}%/yr</span></div>
-      <div><span class="k">Target spend</span><span class="v">${fmtUSD(COAST_FI_ANNUAL_SPEND, 0)}/yr</span></div>
-      <div><span class="k">Withdrawal rate</span><span class="v">${(COAST_FI_WITHDRAW_RATE * 100).toFixed(0)}% (4% rule)</span></div>
-    </div>
-
-    <div class="modal-section">
-      <h3>How the target is set</h3>
-      <div class="modal-empty" style="padding-top:0;">
-        Target = annual spend ÷ withdrawal rate = ${fmtUSD(COAST_FI_ANNUAL_SPEND, 0)} ÷ ${(COAST_FI_WITHDRAW_RATE * 100).toFixed(0)}%
-        = <b style="color:var(--ink)">${fmtUSD(fv, 0)}</b>. This is a Cambodia-lifestyle estimate covering rent,
-        living costs, healthcare buffer, and travel — update <code>COAST_FI_ANNUAL_SPEND</code> in the script if your
-        target lifestyle changes.
-      </div>
-    </div>
-
-    ${reached ? `
-    <div class="modal-section">
-      <h3>Status</h3>
-      <div class="modal-empty" style="padding-top:0;">
-        Current holdings already exceed the Coast FI target at today's value. This assumes no further
-        withdrawals disturb the ${(r * 100).toFixed(0)}%/yr compounding — a live market check is still worth doing
-        before treating this as locked in.
-      </div>
-    </div>` : `
-    <div class="modal-section">
-      <h3>Projected growth — no further contributions</h3>
-      <div class="modal-log-wrap">
-        <table>
-          <thead><tr><th>When</th><th>Projected value</th><th>Of target</th></tr></thead>
-          <tbody>${rowsHTML}</tbody>
-        </table>
-      </div>
-      <div class="modal-empty">
-        Assumes today's balance compounds at ${(r * 100).toFixed(0)}%/yr with zero further DCA contributions
-        — a pure "stop adding, let it ride" scenario. Continuing your current DCA pace would reach this
-        target sooner than shown here.
-      </div>
-    </div>`}
-  `;
-
-  showModal();
-}
-
-document.getElementById('debt-panel').addEventListener('click', openDebtModal);
-document.getElementById('debt-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDebtModal(); }
-});
-document.getElementById('milestone-panel').addEventListener('click', openMilestoneModal);
-document.getElementById('milestone-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMilestoneModal(); }
-});
-document.getElementById('coastfi-panel').addEventListener('click', openCoastFIModal);
-document.getElementById('coastfi-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCoastFIModal(); }
-});
-document.getElementById('emergency-fund-panel').addEventListener('click', openEmergencyFundModal);
-document.getElementById('emergency-fund-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEmergencyFundModal(); }
-});
-
-document.getElementById('risk-btc-panel').addEventListener('click', () => openRiskModal('btc'));
-document.getElementById('risk-btc-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('btc'); }
-});
-document.getElementById('risk-xaut-panel').addEventListener('click', () => openRiskModal('xaut'));
-document.getElementById('risk-xaut-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('xaut'); }
-});
-
-document.getElementById('modal-close').addEventListener('click', closeAssetModal);
-document.getElementById('asset-modal').addEventListener('click', (e) => {
-  if (e.target.id === 'asset-modal') closeAssetModal();
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !document.getElementById('asset-modal').classList.contains('hidden')) closeAssetModal();
-});
-
-function render(data) {
-  const { savings, summary, trades, rules, chart } = data;
-
-  // ---- debt countdown + milestones ----
-  renderDebtCountdown();
-  const monthlyDCA = summary.dcaPace ? summary.dcaPace.avgPerWeek * (52 / 12) : 0;
-  renderMilestones(savings.totalNetSavings, monthlyDCA);
-  renderCoastFI(savings.totalNetSavings);
-  renderEmergencyFund(savings.accounts);
-  renderPortfolioPet();
-
-  // ---- live risk scores ----
-  const holdingByAsset = {};
-  (summary.assets || []).forEach((a) => { holdingByAsset[a.asset] = a.marketValue || 0; });
-  const riskRaw = window.__riskHistoryRaw || {};
-  renderRiskPanel('btc', riskRaw.btc, holdingByAsset.BTC || 0);
-  renderRiskPanel('xaut', riskRaw.xaut, holdingByAsset.XAUT || 0);
-
-  // ---- title block ----
-  document.getElementById('tb-date').textContent = new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-
-  const tbNow = new Date();
-  const yearStart = new Date(tbNow.getFullYear(), 0, 1);
-  const yearEnd = new Date(tbNow.getFullYear() + 1, 0, 1);
-  const yearPct = ((tbNow - yearStart) / (yearEnd - yearStart)) * 100;
-  const dayOfYear = Math.floor((tbNow - yearStart) / 86400000) + 1;
-  const totalDays = Math.round((yearEnd - yearStart) / 86400000);
-  document.getElementById('tb-year-fill').style.width = yearPct.toFixed(1) + '%';
-  document.getElementById('tb-year-text').textContent = `${yearPct.toFixed(0)}% · day ${dayOfYear}/${totalDays}`;
-
-  const statusEl = document.getElementById('tb-status');
-  statusEl.textContent = 'live';
-  statusEl.classList.add('status-live');
-
-  // ---- hero ----
-  const total = savings.totalNetSavings ?? 0;
-  const whole = Math.floor(total);
-  const cents = Math.round((total - whole) * 100).toString().padStart(2, '0');
-  document.getElementById('hero-total').innerHTML = `$${whole.toLocaleString()}<span class="cents">.${cents}</span>`;
-
-  const netPL = summary.total ? summary.total.unrealizedPL : null;
-  const deltaEl = document.getElementById('hero-delta');
-  if (netPL != null) {
-    const arrow = netPL >= 0 ? '▲' : '▼';
-    deltaEl.innerHTML = `<span class="${netPL >= 0 ? 'pos' : 'neg'}">${arrow} ${netPL >= 0 ? '+' : ''}${fmtUSD(netPL)}</span><span>unrealized on DCA positions</span>`;
-  }
-
-  const cashV = savings.cashSubtotal || 0, okxV = savings.okxSubtotal || 0;
-  const sum = cashV + okxV || 1;
-  const cashPct = (cashV / sum) * 100, okxPct = (okxV / sum) * 100;
-  document.getElementById('seg-cash').style.width = cashPct + '%';
-  document.getElementById('seg-okx').style.width = okxPct + '%';
-  renderHeroDims(cashPct, okxPct);
-
-  // ---- foundation ----
-  document.getElementById('fx-note').textContent = savings.fxRate ? `KHR/USD ≈ ${savings.fxRate.toLocaleString()}` : '';
-  const acctRows = document.getElementById('acct-rows');
-  acctRows.innerHTML = savings.accounts.map((a) => `
-    <tr><td>${a.account}</td><td>${a.currency}</td><td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td><td>${fmtUSD(a.balanceUSD)}</td></tr>
-  `).join('') + `<tr class="subtotal"><td colspan="3">Subtotal — Cash &amp; Bank</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr>`;
-
-  // ---- superstructure cards ----
-  const latestByAsset = {};
-  trades.forEach((t) => { latestByAsset[t.asset] = t; });
-
-  // per-asset risk history and last-buy date for #2 and #10
-  const riskByAsset = {};
-  const lastBuyByAsset = {};
-  trades.slice().sort((a, b) => (a.date && b.date ? a.date - b.date : 0)).forEach((t) => {
-    if (t.risk != null) {
-      (riskByAsset[t.asset] = riskByAsset[t.asset] || []).push({ date: t.date, risk: t.risk });
-    }
-    if (t.type && /buy/i.test(t.type) && t.date) {
-      if (!lastBuyByAsset[t.asset] || t.date > lastBuyByAsset[t.asset]) {
-        lastBuyByAsset[t.asset] = t.date;
-      }
-    }
-  });
-  const today = new Date();
-  function daysSince(d) {
-    if (!d) return null;
-    return Math.floor((today - d) / 86400000);
-  }
-
-  const cardsEl = document.getElementById('asset-cards');
-  const tradedAssets = summary.assets.map((a) => a.asset);
-  const ghostAssets = ['XSPY', 'XQQQ'].filter((sym) => !tradedAssets.includes(sym));
-  window.__assetDetails = {};
-  let cardsHtml = '';
-  summary.assets.forEach((a) => {
-    const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
-    const latest = latestByAsset[a.asset];
-    const ruleSet = a.asset === 'BTC' ? rules.btc : a.asset === 'XAUT' ? rules.xaut : null;
-    const zone = ruleSet && latest ? currentZone(ruleSet.rules, latest.risk) : null;
-    const days = daysSince(lastBuyByAsset[a.asset]);
-    const assetTrades = trades.filter((t) => t.asset === a.asset);
-    const buyTrades = assetTrades.filter((t) => t.type && /buy/i.test(t.type));
-
-    // stash everything the modal needs, keyed by asset symbol
-    window.__assetDetails[a.asset] = {
-      asset: a.asset, summary: a, latest, ruleSet, zone,
-      daysSinceLastBuy: days, riskHistory: riskByAsset[a.asset] || [],
-      trades: assetTrades, buyCount: buyTrades.length,
-      firstBuyDate: buyTrades.length ? buyTrades.reduce((m, t) => (!m || (t.date && t.date < m)) ? t.date : m, null) : null,
-    };
-
-    cardsHtml += `
-      <div class="card" tabindex="0" role="button" aria-haspopup="dialog" onclick="openAssetModal('${a.asset}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAssetModal('${a.asset}');}">
-        <span class="alloc">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '% alloc' : ''}</span>
-        <div class="asset-name">${a.asset}</div>
-        <div class="mv">${fmtUSD(a.marketValue)}</div>
-        <div class="pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
-        <div class="meta">
-          <div><span class="k">Invested</span> ${fmtUSD(a.invested)}</div>
-          <div><span class="k">Units</span> ${a.units != null ? a.units.toFixed(8) : '—'}</div>
-          <div><span class="k">Avg cost</span> ${fmtUSD(a.avgCost)}</div>
-          <div><span class="k">Market</span> ${fmtUSD(a.currentPrice)}</div>
-        </div>
-        <div class="card-footer">
-          <div class="last-buy">Last buy: <b>${days != null ? days + 'd ago' : '—'}</b></div>
-          <canvas class="sparkline-canvas" id="spark-${a.asset}"></canvas>
-        </div>
-        ${zone ? `<div class="zone-badge">Risk ${latest.risk.toFixed(2)} → ${zone.zone}</div>` : ''}
-        <div class="card-expand-hint">View details →</div>
-      </div>`;
-  });
-  ghostAssets.forEach((sym) => {
-    cardsHtml += `
-      <div class="card ghost">
-        <div class="asset-name">${sym}</div>
-        <div class="mv">—</div>
-        <div class="pl">No position yet</div>
-      </div>`;
-  });
-  cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
-
-  // draw sparklines now that the canvas elements exist in the DOM
-  summary.assets.forEach((a) => {
-    const canvas = document.getElementById('spark-' + a.asset);
-    if (canvas && riskByAsset[a.asset]) {
-      drawSparkline(canvas, riskByAsset[a.asset]);
-    }
-  });
-
-  const paceEl = document.getElementById('pace-strip');
-  if (summary.dcaPace) {
-    paceEl.innerHTML = `
-      <span>Weeks active: <b>${summary.dcaPace.weeksActive}</b></span>
-      <span>Avg $/week: <b>${fmtUSD(summary.dcaPace.avgPerWeek)}</b></span>
-      <span>Total invested: <b>${fmtUSD(summary.total ? summary.total.invested : null)}</b></span>
-    `;
-  }
-
-  // ---- charts ----
-  window.__lastChart = chart;
-  window.__lastRenderData = data;
-  renderCharts(chart);
-
-  // ---- log ----
-  let currentSort = { key: 'date', dir: -1 };
-  let currentFilter = '';
-  function renderLog() {
-    let rows = trades.slice();
-    if (currentFilter) rows = rows.filter((t) => t.asset === currentFilter);
-    rows.sort((a, b) => {
-      let av = a[currentSort.key], bv = b[currentSort.key];
-      if (av instanceof Date) { av = av.getTime(); bv = bv.getTime(); }
-      if (typeof av === 'string') return currentSort.dir * av.localeCompare(bv);
-      return currentSort.dir * ((av ?? 0) - (bv ?? 0));
-    });
-    document.getElementById('log-rows').innerHTML = rows.map((t) => `
-      <tr>
-        <td>${t.week}</td>
-        <td>${fmtDateFull(t.date)}</td>
-        <td class="asset-${t.asset}">${t.asset}</td>
-        <td>${fmtUSD(t.price)}</td>
-        <td>${fmtUSD(t.amount)}</td>
-        <td>${fmtUSD(t.avgCost)}</td>
-        <td>${fmtUSD(t.marketValue)}</td>
-        <td class="${(t.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg'}">${fmtUSD(t.unrealizedPL)}</td>
-        <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
-        <td>${t.notes || ''}</td>
-      </tr>
-    `).join('');
-  }
-  document.getElementById('log-filter').addEventListener('change', (e) => { currentFilter = e.target.value; renderLog(); });
-  document.querySelectorAll('.log-table th[data-key]').forEach((th) => {
-    th.addEventListener('click', () => {
-      const key = th.dataset.key;
-      currentSort = currentSort.key === key ? { key, dir: -currentSort.dir } : { key, dir: 1 };
-      renderLog();
-    });
-  });
-  renderLog();
-
-  document.getElementById('last-updated').textContent = `Last pulled ${new Date().toLocaleTimeString()}`;
-}
-
-/* =========================================================================
-   LOAD
-   ========================================================================= */
-const EMPTY = {
-  savings: { fxRate: null, accounts: [], cashSubtotal: 0, okx: {}, okxSubtotal: 0, totalNetSavings: 0 },
-  log: [],
-  rules: { btc: { label: 'BTC / USDT', rules: [] }, xaut: { label: 'XAUT / USDT', rules: [] } },
-};
-
-async function loadTab(key, label, parser, timeoutMs, range) {
-  try {
-    const table = await fetchSheetJSONP(label, timeoutMs, range);
-    window.__rawTables[key] = table;
-    return { ok: true, data: parser(table.rows) };
-  } catch (err) {
-    console.error(`[balance-sheet] Failed to load "${label}":`, err.message);
-    window.__rawTables[key] = { error: err.message };
-    return { ok: false, error: err.message, data: EMPTY[key] };
-  }
-}
-
-async function loadAll() {
-  document.getElementById('state-loading').classList.remove('hidden');
-  document.getElementById('state-error').classList.add('hidden');
-  document.getElementById('content').classList.add('hidden');
-  window.__rawTables = {};
-
-  const [savingsR, logR, rulesR, btcRiskR, xautRiskR] = await Promise.all([
-    loadTab('savings', TABS.savings, parseSavingsDashboard),
-    loadTab('log', TABS.log, parseDCALog),
-    loadTab('rules', TABS.rules, parseDCARules),
-    fetchRiskHistory('btc').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
-    fetchRiskHistory('xaut').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
-  ]);
-  window.__riskHistoryRaw = { btc: btcRiskR.data, xaut: xautRiskR.data };
-
-  const results = { savings: savingsR, log: logR, rules: rulesR };
-  const failed = Object.entries(results).filter(([, r]) => !r.ok);
-
-  document.getElementById('state-loading').classList.add('hidden');
-
-  if (failed.length === Object.keys(results).length) {
-    const errEl = document.getElementById('state-error');
-    errEl.innerHTML = `Couldn't load live data: ${failed[0][1].error}. Make sure the sheet is shared as
-      <b>"Anyone with the link — Viewer"</b>, then hit refresh.`;
-    errEl.classList.remove('hidden');
-    document.getElementById('tb-status').textContent = 'stale';
-    document.getElementById('tb-status').classList.add('status-stale');
-    return;
-  }
-
-  const trades = logR.data;
-  // Un-hide the container BEFORE drawing charts: canvas needs real layout
-  // dimensions (getBoundingClientRect) to draw into, and a display:none
-  // ancestor reports 0×0, which silently no-ops the chart drawing.
-  document.getElementById('content').classList.remove('hidden');
-  render({
-    savings: savingsR.data,
-    trades,
-    rules: rulesR.data,
-    summary: computeSummaryFromLog(trades),
-    chart: computeChartDataFromLog(trades),
-  });
-
-  if (failed.length) {
-    const errEl = document.getElementById('state-error');
-    errEl.innerHTML = `Some tabs didn't load (${failed.map(([k, r]) => `${TABS[k]}: ${r.error}`).join(' · ')}). The rest of the page is showing live data; check the console for details.`;
-    errEl.classList.remove('hidden');
-  }
-}
-
-document.getElementById('refresh-btn').addEventListener('click', loadAll);
-let resizeTimer = null;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    if (!document.getElementById('content').classList.contains('hidden') && window.__lastChart) {
-      renderCharts(window.__lastChart);
-    }
-  }, 150);
-});
-
-/* =========================================================================
-   PRINT SNAPSHOT
-   ========================================================================= */
-function buildPrintSnapshot(data) {
-  const { savings, summary, trades } = data;
-  const snap = document.getElementById('print-snapshot');
-  if (!snap) return;
-
-  // capture equity curve canvas as image before rebuilding DOM
-  const chartCanvas = document.getElementById('chart-total');
-  const chartImg = chartCanvas ? chartCanvas.toDataURL('image/png') : null;
-
-  const now = new Date();
-  const dateStr = now.toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  const daysLeft = Math.max(0, Math.ceil((DEBT_FREE_DATE - now) / 86400000));
-
-  const latestByAsset = {};
-  trades.forEach((t) => { latestByAsset[t.asset] = t; });
-
-  // accounts rows
-  const acctRows = savings.accounts.map((a) => `
-    <tr>
-      <td>${a.account}</td>
-      <td>${a.currency}</td>
-      <td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td>
-      <td>${fmtUSD(a.balanceUSD)}</td>
-    </tr>`).join('');
-
-  // position cards
-  const posCards = summary.assets.map((a) => {
-    const latest = latestByAsset[a.asset];
-    const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
-    const days = latest && latest.date ? Math.floor((now - latest.date) / 86400000) : null;
-    return `
-      <div class="ps-card">
-        <div class="pc-name">${a.asset}</div>
-        <div class="pc-mv">${fmtUSD(a.marketValue)}</div>
-        <div class="pc-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
-        <div class="pc-meta">
-          <span class="k">Invested</span><span>${fmtUSD(a.invested)}</span>
-          <span class="k">Units</span><span>${a.units != null ? a.units.toFixed(8) : '—'}</span>
-          <span class="k">Avg cost</span><span>${fmtUSD(a.avgCost)}</span>
-          <span class="k">Market</span><span>${fmtUSD(a.currentPrice)}</span>
-          <span class="k">Risk</span><span>${latest && latest.risk != null ? latest.risk.toFixed(2) : '—'}</span>
-          <span class="k">Last buy</span><span>${days != null ? days + 'd ago' : '—'}</span>
-        </div>
-      </div>`;
-  }).join('');
-
-  // trade log — newest first
-  const logRows = trades.slice()
-    .sort((a, b) => (b.date && a.date ? b.date - a.date : 0))
-    .map((t) => {
-      const cls = (t.unrealizedPL ?? 0) >= 0 ? 'ps-pl-pos' : 'ps-pl-neg';
-      return `<tr>
-        <td>${t.week}</td><td>${fmtDateFull(t.date)}</td><td>${t.asset}</td>
-        <td>${fmtUSD(t.price)}</td><td>${fmtUSD(t.amount)}</td>
-        <td>${fmtUSD(t.avgCost)}</td><td>${fmtUSD(t.marketValue)}</td>
-        <td class="${cls}">${fmtUSD(t.unrealizedPL)}</td>
-        <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
-      </tr>`;
-    }).join('');
-
-  snap.innerHTML = `
-    <div class="ps-header">
-      <div>
-        <div class="ps-title">Personal Balance Sheet</div>
-        <div class="ps-date">Monthly Snapshot</div>
-      </div>
-      <div class="ps-date" style="text-align:right">${dateStr}<br>${timeStr}</div>
-    </div>
-
-    <div class="ps-section">
-      <div class="ps-hero">${fmtUSD(savings.totalNetSavings)}</div>
-      <div class="ps-hero-sub">
-        Cash &amp; Bank ${fmtUSD(savings.cashSubtotal)}
-        &nbsp;·&nbsp; OKX (BTC / XAUT) ${fmtUSD(savings.okxSubtotal)}
-      </div>
-    </div>
-
-    <div class="ps-section">
-      <div class="ps-sh">Cash &amp; Bank</div>
-      <table class="ps-table">
-        <thead><tr><th>Account</th><th>Currency</th><th>Native</th><th>USD</th></tr></thead>
-        <tbody>${acctRows}</tbody>
-        <tfoot><tr class="ps-total"><td colspan="3">Subtotal</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr></tfoot>
-      </table>
-    </div>
-
-    <div class="ps-section">
-      <div class="ps-sh">Holdings — DCA Positions</div>
-      <div class="ps-positions">${posCards}</div>
-      ${summary.dcaPace ? `<div style="font-size:8pt;color:#666">
-        Weeks active: ${summary.dcaPace.weeksActive}
-        &nbsp;·&nbsp; Avg/week: ${fmtUSD(summary.dcaPace.avgPerWeek)}
-        &nbsp;·&nbsp; Total invested: ${fmtUSD(summary.total ? summary.total.invested : null)}
-        &nbsp;·&nbsp; Portfolio value: ${fmtUSD(summary.total ? summary.total.marketValue : null)}
-      </div>` : ''}
-    </div>
-
-    ${chartImg ? `
-    <div class="ps-section">
-      <div class="ps-sh">Performance — Equity Curve</div>
-      <div class="ps-chart"><img src="${chartImg}" /></div>
-    </div>` : ''}
-
-    <div class="ps-section">
-      <div class="ps-sh">Trade Log — ${trades.length} Trades</div>
-      <table class="ps-table">
-        <thead><tr>
-          <th>Wk</th><th>Date</th><th>Asset</th><th>Price</th><th>Amount</th>
-          <th>Avg Cost</th><th>Mkt Value</th><th>Unreal. P&amp;L</th><th>Risk</th>
-        </tr></thead>
-        <tbody>${logRows}</tbody>
-      </table>
-    </div>
-
-    <div class="ps-footer">
-      <span>KHR/USD ≈ ${savings.fxRate ? savings.fxRate.toLocaleString() : '—'}</span>
-      <span>Debt freedom: ${daysLeft} days (Dec 31, 2026)</span>
-      <span>Generated ${dateStr}</span>
-    </div>`;
-}
-
-document.getElementById('print-btn').addEventListener('click', () => {
-  if (!window.__lastRenderData) {
-    alert('Data not loaded yet — wait for the page to finish loading then try again.');
-    return;
-  }
-  buildPrintSnapshot(window.__lastRenderData);
-  window.print();
-});
-
-loadAll();
-</script>
-</body>
-</html>
+        <thead><tr><th>Month</th><th>Paid to date</th><th>Remaining</th></tr><

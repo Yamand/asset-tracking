@@ -2165,4 +2165,651 @@ function openDebtModal() {
     <div class="modal-section">
       <h3>Month-by-month</h3>
       <div class="modal-log-wrap"><table>
-        <thead><tr><th>Month</th><th>Paid to date</th><th>Remaining</th></tr><
+        <thead><tr><th>Month</th><th>Paid to date</th><th>Remaining</th></tr></thead>
+        <tbody>${timeline.map((t) => `
+          <tr>
+            <td>${t.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</td>
+            <td>${fmtUSD(t.paid, 0)}</td>
+            <td>${fmtUSD(t.remaining, 0)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+
+  showModal();
+}
+
+/* =========================================================================
+   MILESTONE DETAIL MODAL
+   ========================================================================= */
+function openMilestoneModal() {
+  const d = window.__milestoneDetails;
+  if (!d) return;
+  const { total, monthlyDCA, milestones, reachedCount, next, remaining, monthsToGo } = d;
+
+  const rows = milestones.map((m) => {
+    const reached = total >= m;
+    const isNext = m === next;
+    const status = reached ? 'Reached' : (isNext ? 'Next' : 'Locked');
+    const color = reached ? 'var(--gain)' : (isNext ? 'var(--accent2)' : 'var(--ink-faint)');
+    const icon = reached ? '✓' : (isNext ? '→' : '·');
+    return `
+      <tr>
+        <td>${icon} ${fmtUSD(m, 0)}</td>
+        <td style="color:${color}">${status}</td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Net Worth Milestones</span>
+      <span class="modal-mv">${reachedCount}/${milestones.length}</span>
+      <span class="modal-pl">reached</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Current net worth</span><span class="v">${fmtUSD(total)}</span></div>
+      <div><span class="k">Next milestone</span><span class="v">${next != null ? fmtUSD(next, 0) : '—'}</span></div>
+      <div><span class="k">Remaining</span><span class="v">${next != null ? fmtUSD(remaining, 0) : '—'}</span></div>
+      <div><span class="k">DCA pace</span><span class="v">${fmtUSD(monthlyDCA, 0)}/mo</span></div>
+      <div><span class="k">Est. time to next</span><span class="v">${monthsToGo != null ? monthsToGo + ' mo' : '—'}</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Milestone ladder</h3>
+      <div class="modal-log-wrap"><table>
+        <thead><tr><th>Milestone</th><th>Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="modal-empty" style="padding-top:12px;">
+        Estimate uses your current live DCA pace (${fmtUSD(monthlyDCA, 0)}/mo) — it doesn't yet account for
+        cash/bank savings growth, so actual time-to-milestone will likely be a bit faster.
+      </div>
+    </div>
+  `;
+
+  showModal();
+}
+
+/* =========================================================================
+   EMERGENCY FUND DETAIL MODAL
+   ========================================================================= */
+function openEmergencyFundModal() {
+  const d = window.__emergencyFundDetails;
+  if (!d) return;
+  const { total, target, remaining, monthsCovered, rows } = d;
+
+  const rowsHtml = (rows || []).map((a) => `
+    <tr>
+      <td>${a.account}${a.currency ? ' (' + a.currency + ')' : ''}</td>
+      <td>${a.balanceNative != null ? a.balanceNative.toLocaleString() : '—'}</td>
+      <td>${fmtUSD(a.balanceUSD || 0)}</td>
+    </tr>`).join('') || '<tr><td colspan="3">No MAYBANK rows found in sheet.</td></tr>';
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Emergency Fund</span>
+      <span class="modal-mv">${fmtUSD(total)}</span>
+      <span class="modal-pl">${monthsCovered.toFixed(1)} mo covered</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Current balance</span><span class="v">${fmtUSD(total)}</span></div>
+      <div><span class="k">Target (${EMERGENCY_FUND_MONTHS_TARGET} mo)</span><span class="v">${fmtUSD(target, 0)}</span></div>
+      <div><span class="k">Remaining</span><span class="v">${fmtUSD(remaining, 0)}</span></div>
+      <div><span class="k">Monthly essentials</span><span class="v">${fmtUSD(EMERGENCY_FUND_MONTHLY_ESSENTIALS, 0)}</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>MAYBANK accounts</h3>
+      <div class="modal-log-wrap"><table>
+        <thead><tr><th>Account</th><th>Native</th><th>USD</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table></div>
+      <div class="modal-empty" style="padding-top:12px;">
+        Target assumes ${EMERGENCY_FUND_MONTHS_TARGET} months of essential living costs at
+        ${fmtUSD(EMERGENCY_FUND_MONTHLY_ESSENTIALS, 0)}/mo — adjust <code>EMERGENCY_FUND_MONTHLY_ESSENTIALS</code>
+        in the script if your baseline changes.
+      </div>
+    </div>
+  `;
+
+  showModal();
+}
+
+/* =========================================================================
+   COAST FI DETAIL MODAL
+   ========================================================================= */
+function openCoastFIModal() {
+  const d = window.__coastFiDetails;
+  if (!d) return;
+  const { pv, fv, r, yearsToTarget, coastDate, pctToTarget } = d;
+
+  const reached = pv >= fv;
+  const yearsLabel = reached ? 'Reached' : `${yearsToTarget.toFixed(1)} yrs`;
+  const dateLabel = reached ? 'Now' : (coastDate
+    ? coastDate.toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })
+    : '—');
+
+  // growth trajectory rows, year by year, PV compounding at r (no further contributions)
+  const rows = [];
+  const maxYears = Math.min(40, reached ? 0 : Math.ceil(yearsToTarget) + 1);
+  for (let y = 0; y <= maxYears; y++) {
+    const val = pv * Math.pow(1 + r, y);
+    rows.push({ y, val, hit: val >= fv });
+  }
+
+  const rowsHTML = rows.map((row) => `
+    <tr>
+      <td>${row.y === 0 ? 'Today' : `+${row.y}y`}</td>
+      <td>${fmtUSD(row.val)}</td>
+      <td>${row.hit ? '<span style="color:var(--gain)">✓ target reached</span>' : ((row.val / fv * 100).toFixed(0) + '%')}</td>
+    </tr>`).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Coast FI</span>
+      <span class="modal-mv">${yearsLabel}</span>
+      <span class="modal-pl">est. ${dateLabel}</span>
+    </div>
+
+    <div class="modal-stats">
+      <div><span class="k">Current net worth</span><span class="v">${fmtUSD(pv)}</span></div>
+      <div><span class="k">Coast FI target</span><span class="v">${fmtUSD(fv, 0)}</span></div>
+      <div><span class="k">Progress to target</span><span class="v">${pctToTarget.toFixed(1)}%</span></div>
+      <div><span class="k">Assumed return</span><span class="v">${(r * 100).toFixed(0)}%/yr</span></div>
+      <div><span class="k">Target spend</span><span class="v">${fmtUSD(COAST_FI_ANNUAL_SPEND, 0)}/yr</span></div>
+      <div><span class="k">Withdrawal rate</span><span class="v">${(COAST_FI_WITHDRAW_RATE * 100).toFixed(0)}% (4% rule)</span></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>How the target is set</h3>
+      <div class="modal-empty" style="padding-top:0;">
+        Target = annual spend ÷ withdrawal rate = ${fmtUSD(COAST_FI_ANNUAL_SPEND, 0)} ÷ ${(COAST_FI_WITHDRAW_RATE * 100).toFixed(0)}%
+        = <b style="color:var(--ink)">${fmtUSD(fv, 0)}</b>. This is a Cambodia-lifestyle estimate covering rent,
+        living costs, healthcare buffer, and travel — update <code>COAST_FI_ANNUAL_SPEND</code> in the script if your
+        target lifestyle changes.
+      </div>
+    </div>
+
+    ${reached ? `
+    <div class="modal-section">
+      <h3>Status</h3>
+      <div class="modal-empty" style="padding-top:0;">
+        Current holdings already exceed the Coast FI target at today's value. This assumes no further
+        withdrawals disturb the ${(r * 100).toFixed(0)}%/yr compounding — a live market check is still worth doing
+        before treating this as locked in.
+      </div>
+    </div>` : `
+    <div class="modal-section">
+      <h3>Projected growth — no further contributions</h3>
+      <div class="modal-log-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Projected value</th><th>Of target</th></tr></thead>
+          <tbody>${rowsHTML}</tbody>
+        </table>
+      </div>
+      <div class="modal-empty">
+        Assumes today's balance compounds at ${(r * 100).toFixed(0)}%/yr with zero further DCA contributions
+        — a pure "stop adding, let it ride" scenario. Continuing your current DCA pace would reach this
+        target sooner than shown here.
+      </div>
+    </div>`}
+  `;
+
+  showModal();
+}
+
+document.getElementById('debt-panel').addEventListener('click', openDebtModal);
+document.getElementById('debt-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDebtModal(); }
+});
+document.getElementById('milestone-panel').addEventListener('click', openMilestoneModal);
+document.getElementById('milestone-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMilestoneModal(); }
+});
+document.getElementById('coastfi-panel').addEventListener('click', openCoastFIModal);
+document.getElementById('coastfi-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCoastFIModal(); }
+});
+document.getElementById('emergency-fund-panel').addEventListener('click', openEmergencyFundModal);
+document.getElementById('emergency-fund-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEmergencyFundModal(); }
+});
+
+document.getElementById('risk-btc-panel').addEventListener('click', () => openRiskModal('btc'));
+document.getElementById('risk-btc-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('btc'); }
+});
+document.getElementById('risk-xaut-panel').addEventListener('click', () => openRiskModal('xaut'));
+document.getElementById('risk-xaut-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('xaut'); }
+});
+
+document.getElementById('modal-close').addEventListener('click', closeAssetModal);
+document.getElementById('asset-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'asset-modal') closeAssetModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('asset-modal').classList.contains('hidden')) closeAssetModal();
+});
+
+function render(data) {
+  const { savings, summary, trades, rules, chart } = data;
+
+  // ---- debt countdown + milestones ----
+  renderDebtCountdown();
+  const monthlyDCA = summary.dcaPace ? summary.dcaPace.avgPerWeek * (52 / 12) : 0;
+  renderMilestones(savings.totalNetSavings, monthlyDCA);
+  renderCoastFI(savings.totalNetSavings);
+  renderEmergencyFund(savings.accounts);
+  renderPortfolioPet();
+
+  // ---- live risk scores ----
+  const holdingByAsset = {};
+  (summary.assets || []).forEach((a) => { holdingByAsset[a.asset] = a.marketValue || 0; });
+  const riskRaw = window.__riskHistoryRaw || {};
+  renderRiskPanel('btc', riskRaw.btc, holdingByAsset.BTC || 0);
+  renderRiskPanel('xaut', riskRaw.xaut, holdingByAsset.XAUT || 0);
+
+  // ---- title block ----
+  document.getElementById('tb-date').textContent = new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const tbNow = new Date();
+  const yearStart = new Date(tbNow.getFullYear(), 0, 1);
+  const yearEnd = new Date(tbNow.getFullYear() + 1, 0, 1);
+  const yearPct = ((tbNow - yearStart) / (yearEnd - yearStart)) * 100;
+  const dayOfYear = Math.floor((tbNow - yearStart) / 86400000) + 1;
+  const totalDays = Math.round((yearEnd - yearStart) / 86400000);
+  document.getElementById('tb-year-fill').style.width = yearPct.toFixed(1) + '%';
+  document.getElementById('tb-year-text').textContent = `${yearPct.toFixed(0)}% · day ${dayOfYear}/${totalDays}`;
+
+  const statusEl = document.getElementById('tb-status');
+  statusEl.textContent = 'live';
+  statusEl.classList.add('status-live');
+
+  // ---- hero ----
+  const total = savings.totalNetSavings ?? 0;
+  const whole = Math.floor(total);
+  const cents = Math.round((total - whole) * 100).toString().padStart(2, '0');
+  document.getElementById('hero-total').innerHTML = `$${whole.toLocaleString()}<span class="cents">.${cents}</span>`;
+
+  const netPL = summary.total ? summary.total.unrealizedPL : null;
+  const deltaEl = document.getElementById('hero-delta');
+  if (netPL != null) {
+    const arrow = netPL >= 0 ? '▲' : '▼';
+    deltaEl.innerHTML = `<span class="${netPL >= 0 ? 'pos' : 'neg'}">${arrow} ${netPL >= 0 ? '+' : ''}${fmtUSD(netPL)}</span><span>unrealized on DCA positions</span>`;
+  }
+
+  const cashV = savings.cashSubtotal || 0, okxV = savings.okxSubtotal || 0;
+  const sum = cashV + okxV || 1;
+  const cashPct = (cashV / sum) * 100, okxPct = (okxV / sum) * 100;
+  document.getElementById('seg-cash').style.width = cashPct + '%';
+  document.getElementById('seg-okx').style.width = okxPct + '%';
+  renderHeroDims(cashPct, okxPct);
+
+  // ---- foundation ----
+  document.getElementById('fx-note').textContent = savings.fxRate ? `KHR/USD ≈ ${savings.fxRate.toLocaleString()}` : '';
+  const acctRows = document.getElementById('acct-rows');
+  acctRows.innerHTML = savings.accounts.map((a) => `
+    <tr><td>${a.account}</td><td>${a.currency}</td><td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td><td>${fmtUSD(a.balanceUSD)}</td></tr>
+  `).join('') + `<tr class="subtotal"><td colspan="3">Subtotal — Cash &amp; Bank</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr>`;
+
+  // ---- superstructure cards ----
+  const latestByAsset = {};
+  trades.forEach((t) => { latestByAsset[t.asset] = t; });
+
+  // per-asset risk history and last-buy date for #2 and #10
+  const riskByAsset = {};
+  const lastBuyByAsset = {};
+  trades.slice().sort((a, b) => (a.date && b.date ? a.date - b.date : 0)).forEach((t) => {
+    if (t.risk != null) {
+      (riskByAsset[t.asset] = riskByAsset[t.asset] || []).push({ date: t.date, risk: t.risk });
+    }
+    if (t.type && /buy/i.test(t.type) && t.date) {
+      if (!lastBuyByAsset[t.asset] || t.date > lastBuyByAsset[t.asset]) {
+        lastBuyByAsset[t.asset] = t.date;
+      }
+    }
+  });
+  const today = new Date();
+  function daysSince(d) {
+    if (!d) return null;
+    return Math.floor((today - d) / 86400000);
+  }
+
+  const cardsEl = document.getElementById('asset-cards');
+  const tradedAssets = summary.assets.map((a) => a.asset);
+  const ghostAssets = ['XSPY', 'XQQQ'].filter((sym) => !tradedAssets.includes(sym));
+  window.__assetDetails = {};
+  let cardsHtml = '';
+  summary.assets.forEach((a) => {
+    const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
+    const latest = latestByAsset[a.asset];
+    const ruleSet = a.asset === 'BTC' ? rules.btc : a.asset === 'XAUT' ? rules.xaut : null;
+    const zone = ruleSet && latest ? currentZone(ruleSet.rules, latest.risk) : null;
+    const days = daysSince(lastBuyByAsset[a.asset]);
+    const assetTrades = trades.filter((t) => t.asset === a.asset);
+    const buyTrades = assetTrades.filter((t) => t.type && /buy/i.test(t.type));
+
+    // stash everything the modal needs, keyed by asset symbol
+    window.__assetDetails[a.asset] = {
+      asset: a.asset, summary: a, latest, ruleSet, zone,
+      daysSinceLastBuy: days, riskHistory: riskByAsset[a.asset] || [],
+      trades: assetTrades, buyCount: buyTrades.length,
+      firstBuyDate: buyTrades.length ? buyTrades.reduce((m, t) => (!m || (t.date && t.date < m)) ? t.date : m, null) : null,
+    };
+
+    cardsHtml += `
+      <div class="card" tabindex="0" role="button" aria-haspopup="dialog" onclick="openAssetModal('${a.asset}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAssetModal('${a.asset}');}">
+        <span class="alloc">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '% alloc' : ''}</span>
+        <div class="asset-name">${a.asset}</div>
+        <div class="mv">${fmtUSD(a.marketValue)}</div>
+        <div class="pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
+        <div class="meta">
+          <div><span class="k">Invested</span> ${fmtUSD(a.invested)}</div>
+          <div><span class="k">Units</span> ${a.units != null ? a.units.toFixed(8) : '—'}</div>
+          <div><span class="k">Avg cost</span> ${fmtUSD(a.avgCost)}</div>
+          <div><span class="k">Market</span> ${fmtUSD(a.currentPrice)}</div>
+        </div>
+        <div class="card-footer">
+          <div class="last-buy">Last buy: <b>${days != null ? days + 'd ago' : '—'}</b></div>
+          <canvas class="sparkline-canvas" id="spark-${a.asset}"></canvas>
+        </div>
+        ${zone ? `<div class="zone-badge">Risk ${latest.risk.toFixed(2)} → ${zone.zone}</div>` : ''}
+        <div class="card-expand-hint">View details →</div>
+      </div>`;
+  });
+  ghostAssets.forEach((sym) => {
+    cardsHtml += `
+      <div class="card ghost">
+        <div class="asset-name">${sym}</div>
+        <div class="mv">—</div>
+        <div class="pl">No position yet</div>
+      </div>`;
+  });
+  cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
+
+  // draw sparklines now that the canvas elements exist in the DOM
+  summary.assets.forEach((a) => {
+    const canvas = document.getElementById('spark-' + a.asset);
+    if (canvas && riskByAsset[a.asset]) {
+      drawSparkline(canvas, riskByAsset[a.asset]);
+    }
+  });
+
+  const paceEl = document.getElementById('pace-strip');
+  if (summary.dcaPace) {
+    paceEl.innerHTML = `
+      <span>Weeks active: <b>${summary.dcaPace.weeksActive}</b></span>
+      <span>Avg $/week: <b>${fmtUSD(summary.dcaPace.avgPerWeek)}</b></span>
+      <span>Total invested: <b>${fmtUSD(summary.total ? summary.total.invested : null)}</b></span>
+    `;
+  }
+
+  // ---- charts ----
+  window.__lastChart = chart;
+  window.__lastRenderData = data;
+  renderCharts(chart);
+
+  // ---- log ----
+  let currentSort = { key: 'date', dir: -1 };
+  let currentFilter = '';
+  function renderLog() {
+    let rows = trades.slice();
+    if (currentFilter) rows = rows.filter((t) => t.asset === currentFilter);
+    rows.sort((a, b) => {
+      let av = a[currentSort.key], bv = b[currentSort.key];
+      if (av instanceof Date) { av = av.getTime(); bv = bv.getTime(); }
+      if (typeof av === 'string') return currentSort.dir * av.localeCompare(bv);
+      return currentSort.dir * ((av ?? 0) - (bv ?? 0));
+    });
+    document.getElementById('log-rows').innerHTML = rows.map((t) => `
+      <tr>
+        <td>${t.week}</td>
+        <td>${fmtDateFull(t.date)}</td>
+        <td class="asset-${t.asset}">${t.asset}</td>
+        <td>${fmtUSD(t.price)}</td>
+        <td>${fmtUSD(t.amount)}</td>
+        <td>${fmtUSD(t.avgCost)}</td>
+        <td>${fmtUSD(t.marketValue)}</td>
+        <td class="${(t.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg'}">${fmtUSD(t.unrealizedPL)}</td>
+        <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
+        <td>${t.notes || ''}</td>
+      </tr>
+    `).join('');
+  }
+  document.getElementById('log-filter').addEventListener('change', (e) => { currentFilter = e.target.value; renderLog(); });
+  document.querySelectorAll('.log-table th[data-key]').forEach((th) => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      currentSort = currentSort.key === key ? { key, dir: -currentSort.dir } : { key, dir: 1 };
+      renderLog();
+    });
+  });
+  renderLog();
+
+  document.getElementById('last-updated').textContent = `Last pulled ${new Date().toLocaleTimeString()}`;
+}
+
+/* =========================================================================
+   LOAD
+   ========================================================================= */
+const EMPTY = {
+  savings: { fxRate: null, accounts: [], cashSubtotal: 0, okx: {}, okxSubtotal: 0, totalNetSavings: 0 },
+  log: [],
+  rules: { btc: { label: 'BTC / USDT', rules: [] }, xaut: { label: 'XAUT / USDT', rules: [] } },
+};
+
+async function loadTab(key, label, parser, timeoutMs, range) {
+  try {
+    const table = await fetchSheetJSONP(label, timeoutMs, range);
+    window.__rawTables[key] = table;
+    return { ok: true, data: parser(table.rows) };
+  } catch (err) {
+    console.error(`[balance-sheet] Failed to load "${label}":`, err.message);
+    window.__rawTables[key] = { error: err.message };
+    return { ok: false, error: err.message, data: EMPTY[key] };
+  }
+}
+
+async function loadAll() {
+  document.getElementById('state-loading').classList.remove('hidden');
+  document.getElementById('state-error').classList.add('hidden');
+  document.getElementById('content').classList.add('hidden');
+  window.__rawTables = {};
+
+  const [savingsR, logR, rulesR, btcRiskR, xautRiskR] = await Promise.all([
+    loadTab('savings', TABS.savings, parseSavingsDashboard),
+    loadTab('log', TABS.log, parseDCALog),
+    loadTab('rules', TABS.rules, parseDCARules),
+    fetchRiskHistory('btc').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
+    fetchRiskHistory('xaut').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
+  ]);
+  window.__riskHistoryRaw = { btc: btcRiskR.data, xaut: xautRiskR.data };
+
+  const results = { savings: savingsR, log: logR, rules: rulesR };
+  const failed = Object.entries(results).filter(([, r]) => !r.ok);
+
+  document.getElementById('state-loading').classList.add('hidden');
+
+  if (failed.length === Object.keys(results).length) {
+    const errEl = document.getElementById('state-error');
+    errEl.innerHTML = `Couldn't load live data: ${failed[0][1].error}. Make sure the sheet is shared as
+      <b>"Anyone with the link — Viewer"</b>, then hit refresh.`;
+    errEl.classList.remove('hidden');
+    document.getElementById('tb-status').textContent = 'stale';
+    document.getElementById('tb-status').classList.add('status-stale');
+    return;
+  }
+
+  const trades = logR.data;
+  // Un-hide the container BEFORE drawing charts: canvas needs real layout
+  // dimensions (getBoundingClientRect) to draw into, and a display:none
+  // ancestor reports 0×0, which silently no-ops the chart drawing.
+  document.getElementById('content').classList.remove('hidden');
+  render({
+    savings: savingsR.data,
+    trades,
+    rules: rulesR.data,
+    summary: computeSummaryFromLog(trades),
+    chart: computeChartDataFromLog(trades),
+  });
+
+  if (failed.length) {
+    const errEl = document.getElementById('state-error');
+    errEl.innerHTML = `Some tabs didn't load (${failed.map(([k, r]) => `${TABS[k]}: ${r.error}`).join(' · ')}). The rest of the page is showing live data; check the console for details.`;
+    errEl.classList.remove('hidden');
+  }
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadAll);
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!document.getElementById('content').classList.contains('hidden') && window.__lastChart) {
+      renderCharts(window.__lastChart);
+    }
+  }, 150);
+});
+
+/* =========================================================================
+   PRINT SNAPSHOT
+   ========================================================================= */
+function buildPrintSnapshot(data) {
+  const { savings, summary, trades } = data;
+  const snap = document.getElementById('print-snapshot');
+  if (!snap) return;
+
+  // capture equity curve canvas as image before rebuilding DOM
+  const chartCanvas = document.getElementById('chart-total');
+  const chartImg = chartCanvas ? chartCanvas.toDataURL('image/png') : null;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const daysLeft = Math.max(0, Math.ceil((DEBT_FREE_DATE - now) / 86400000));
+
+  const latestByAsset = {};
+  trades.forEach((t) => { latestByAsset[t.asset] = t; });
+
+  // accounts rows
+  const acctRows = savings.accounts.map((a) => `
+    <tr>
+      <td>${a.account}</td>
+      <td>${a.currency}</td>
+      <td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td>
+      <td>${fmtUSD(a.balanceUSD)}</td>
+    </tr>`).join('');
+
+  // position cards
+  const posCards = summary.assets.map((a) => {
+    const latest = latestByAsset[a.asset];
+    const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
+    const days = latest && latest.date ? Math.floor((now - latest.date) / 86400000) : null;
+    return `
+      <div class="ps-card">
+        <div class="pc-name">${a.asset}</div>
+        <div class="pc-mv">${fmtUSD(a.marketValue)}</div>
+        <div class="pc-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
+        <div class="pc-meta">
+          <span class="k">Invested</span><span>${fmtUSD(a.invested)}</span>
+          <span class="k">Units</span><span>${a.units != null ? a.units.toFixed(8) : '—'}</span>
+          <span class="k">Avg cost</span><span>${fmtUSD(a.avgCost)}</span>
+          <span class="k">Market</span><span>${fmtUSD(a.currentPrice)}</span>
+          <span class="k">Risk</span><span>${latest && latest.risk != null ? latest.risk.toFixed(2) : '—'}</span>
+          <span class="k">Last buy</span><span>${days != null ? days + 'd ago' : '—'}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // trade log — newest first
+  const logRows = trades.slice()
+    .sort((a, b) => (b.date && a.date ? b.date - a.date : 0))
+    .map((t) => {
+      const cls = (t.unrealizedPL ?? 0) >= 0 ? 'ps-pl-pos' : 'ps-pl-neg';
+      return `<tr>
+        <td>${t.week}</td><td>${fmtDateFull(t.date)}</td><td>${t.asset}</td>
+        <td>${fmtUSD(t.price)}</td><td>${fmtUSD(t.amount)}</td>
+        <td>${fmtUSD(t.avgCost)}</td><td>${fmtUSD(t.marketValue)}</td>
+        <td class="${cls}">${fmtUSD(t.unrealizedPL)}</td>
+        <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
+      </tr>`;
+    }).join('');
+
+  snap.innerHTML = `
+    <div class="ps-header">
+      <div>
+        <div class="ps-title">Personal Balance Sheet</div>
+        <div class="ps-date">Monthly Snapshot</div>
+      </div>
+      <div class="ps-date" style="text-align:right">${dateStr}<br>${timeStr}</div>
+    </div>
+
+    <div class="ps-section">
+      <div class="ps-hero">${fmtUSD(savings.totalNetSavings)}</div>
+      <div class="ps-hero-sub">
+        Cash &amp; Bank ${fmtUSD(savings.cashSubtotal)}
+        &nbsp;·&nbsp; OKX (BTC / XAUT) ${fmtUSD(savings.okxSubtotal)}
+      </div>
+    </div>
+
+    <div class="ps-section">
+      <div class="ps-sh">Cash &amp; Bank</div>
+      <table class="ps-table">
+        <thead><tr><th>Account</th><th>Currency</th><th>Native</th><th>USD</th></tr></thead>
+        <tbody>${acctRows}</tbody>
+        <tfoot><tr class="ps-total"><td colspan="3">Subtotal</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="ps-section">
+      <div class="ps-sh">Holdings — DCA Positions</div>
+      <div class="ps-positions">${posCards}</div>
+      ${summary.dcaPace ? `<div style="font-size:8pt;color:#666">
+        Weeks active: ${summary.dcaPace.weeksActive}
+        &nbsp;·&nbsp; Avg/week: ${fmtUSD(summary.dcaPace.avgPerWeek)}
+        &nbsp;·&nbsp; Total invested: ${fmtUSD(summary.total ? summary.total.invested : null)}
+        &nbsp;·&nbsp; Portfolio value: ${fmtUSD(summary.total ? summary.total.marketValue : null)}
+      </div>` : ''}
+    </div>
+
+    ${chartImg ? `
+    <div class="ps-section">
+      <div class="ps-sh">Performance — Equity Curve</div>
+      <div class="ps-chart"><img src="${chartImg}" /></div>
+    </div>` : ''}
+
+    <div class="ps-section">
+      <div class="ps-sh">Trade Log — ${trades.length} Trades</div>
+      <table class="ps-table">
+        <thead><tr>
+          <th>Wk</th><th>Date</th><th>Asset</th><th>Price</th><th>Amount</th>
+          <th>Avg Cost</th><th>Mkt Value</th><th>Unreal. P&amp;L</th><th>Risk</th>
+        </tr></thead>
+        <tbody>${logRows}</tbody>
+      </table>
+    </div>
+
+    <div class="ps-footer">
+      <span>KHR/USD ≈ ${savings.fxRate ? savings.fxRate.toLocaleString() : '—'}</span>
+      <span>Debt freedom: ${daysLeft} days (Dec 31, 2026)</span>
+      <span>Generated ${dateStr}</span>
+    </div>`;
+}
+
+document.getElementById('print-btn').addEventListener('click', () => {
+  if (!window.__lastRenderData) {
+    alert('Data not loaded yet — wait for the page to finish loading then try again.');
+    return;
+  }
+  buildPrintSnapshot(window.__lastRenderData);
+  window.print();
+});
+
+loadAll();
+</script>
+</body>
+</html>

@@ -816,21 +816,54 @@ const TABS = {
   rules: 'DCA Rules',
 };
 
-// ---- personal constants (update these if life changes) ----
-const MONTHLY_DEBT     = 300;   // car debt — clears Dec 31 2026
+// ---- personal constants ----
+// Sheet-driven: real values are read from the "Config" block in the DCA
+// Rules tab (see parseConfigBlock / applyConfig below). These are only the
+// fallbacks used before data loads, or if a key is missing from the sheet.
+const CONFIG_DEFAULTS = {
+  'Monthly Debt': '300',
+  'Debt Free Date': '2026-12-31',
+  'Debt Plan Start': '2026-01-01',
+  'Emergency Fund Monthly Essentials': '300',
+  'Emergency Fund Months Target': '3',
+  'Coast FI Annual Spend': '10000',
+  'Coast FI Withdraw Rate': '0.04',
+  'Coast FI Return Rate': '0.08',
+};
 
-// ---- emergency fund constants ----
-const EMERGENCY_FUND_MONTHLY_ESSENTIALS = 300;  // baseline essential living cost, $/mo
-const EMERGENCY_FUND_MONTHS_TARGET      = 3;    // months of essentials to hold in reserve
-const EMERGENCY_FUND_TARGET             = EMERGENCY_FUND_MONTHLY_ESSENTIALS * EMERGENCY_FUND_MONTHS_TARGET;
-const DEBT_FREE_DATE   = new Date(2026, 11, 31);  // Dec 31 2026
-const DEBT_PLAN_START  = new Date(2026, 0, 1);    // Jan 1 2026 — progress reference
+let MONTHLY_DEBT, EMERGENCY_FUND_MONTHLY_ESSENTIALS, EMERGENCY_FUND_MONTHS_TARGET,
+    EMERGENCY_FUND_TARGET, DEBT_FREE_DATE, DEBT_PLAN_START,
+    COAST_FI_ANNUAL_SPEND, COAST_FI_WITHDRAW_RATE, COAST_FI_TARGET, COAST_FI_RETURN_RATE;
 
-// ---- coast FI constants ----
-const COAST_FI_ANNUAL_SPEND  = 10000;                                          // target Cambodia lifestyle spend, $/yr
-const COAST_FI_WITHDRAW_RATE = 0.04;                                           // 4% rule
-const COAST_FI_TARGET        = COAST_FI_ANNUAL_SPEND / COAST_FI_WITHDRAW_RATE; // $375,000
-const COAST_FI_RETURN_RATE   = 0.08;                                           // assumed blended annual return, conservative
+// Parses "YYYY-MM-DD" as a local date (avoids UTC-shift-by-a-day issues
+// that plain `new Date("2026-12-31")` can cause).
+function parseConfigDate(s, fallback) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s || '').trim());
+  if (!m) return fallback;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+function parseConfigNum(s, fallback) {
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : fallback;
+}
+// Merges sheet config over CONFIG_DEFAULTS, then (re)assigns the derived
+// constants. Called once with just defaults at script load (so early
+// references don't blow up), then again with real sheet data once the
+// Rules tab loads.
+function applyConfig(sheetConfig) {
+  const c = Object.assign({}, CONFIG_DEFAULTS, sheetConfig || {});
+  MONTHLY_DEBT = parseConfigNum(c['Monthly Debt'], 300);
+  EMERGENCY_FUND_MONTHLY_ESSENTIALS = parseConfigNum(c['Emergency Fund Monthly Essentials'], 300);
+  EMERGENCY_FUND_MONTHS_TARGET = parseConfigNum(c['Emergency Fund Months Target'], 3);
+  EMERGENCY_FUND_TARGET = EMERGENCY_FUND_MONTHLY_ESSENTIALS * EMERGENCY_FUND_MONTHS_TARGET;
+  DEBT_FREE_DATE = parseConfigDate(c['Debt Free Date'], new Date(2026, 11, 31));
+  DEBT_PLAN_START = parseConfigDate(c['Debt Plan Start'], new Date(2026, 0, 1));
+  COAST_FI_ANNUAL_SPEND = parseConfigNum(c['Coast FI Annual Spend'], 10000);
+  COAST_FI_WITHDRAW_RATE = parseConfigNum(c['Coast FI Withdraw Rate'], 0.04);
+  COAST_FI_TARGET = COAST_FI_ANNUAL_SPEND / COAST_FI_WITHDRAW_RATE;
+  COAST_FI_RETURN_RATE = parseConfigNum(c['Coast FI Return Rate'], 0.08);
+}
+applyConfig(null); // seed with defaults immediately so nothing is undefined before load
 
 /* =========================================================================
    DATA FETCH (from pre-generated JSON files via GitHub Actions)
@@ -1099,10 +1132,28 @@ function parseRuleBlock(rows, startMatcher) {
   }
   return { label, rules };
 }
+// Key/value config block — lets personal constants (debt payment, coast-FI
+// target, etc.) live in the sheet instead of the script, so updating them
+// doesn't require touching code. Missing keys fall back to CONFIG_DEFAULTS
+// below, so an out-of-date or not-yet-updated sheet never breaks the page.
+function parseConfigBlock(rows) {
+  const startIdx = rows.findIndex((r) => textOf(r, 0) === 'Config');
+  const config = {};
+  if (startIdx < 0) return config;
+  const headerIdx = startIdx + 1; // "Key | Value" header row, skipped
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const key = textOf(rows[i], 0);
+    if (!key) break;
+    const valText = textOf(rows[i], 1);
+    config[key] = valText;
+  }
+  return config;
+}
 function parseDCARules(rows) {
   return {
     btc: parseRuleBlock(rows, (t) => /btc/i.test(t) && /week/i.test(t)),
     xaut: parseRuleBlock(rows, (t) => /xaut/i.test(t) && /week/i.test(t)),
+    config: parseConfigBlock(rows),
   };
 }
 
@@ -2599,7 +2650,7 @@ function render(data) {
 const EMPTY = {
   savings: { fxRate: null, accounts: [], cashSubtotal: 0, okx: {}, okxSubtotal: 0, totalNetSavings: 0 },
   log: [],
-  rules: { btc: { label: 'BTC / USDT', rules: [] }, xaut: { label: 'XAUT / USDT', rules: [] } },
+  rules: { btc: { label: 'BTC / USDT', rules: [] }, xaut: { label: 'XAUT / USDT', rules: [] }, config: {} },
 };
 
 async function loadTab(key, label, parser, timeoutMs, range) {
@@ -2645,6 +2696,9 @@ async function loadAll() {
   }
 
   const trades = logR.data;
+  // Re-apply config from the sheet (falls back to CONFIG_DEFAULTS per-key
+  // if the Rules tab failed to load or a key is missing/blank).
+  applyConfig(rulesR.ok ? rulesR.data.config : null);
   // Un-hide the container BEFORE drawing charts: canvas needs real layout
   // dimensions (getBoundingClientRect) to draw into, and a display:none
   // ancestor reports 0×0, which silently no-ops the chart drawing.

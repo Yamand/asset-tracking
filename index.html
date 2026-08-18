@@ -455,6 +455,25 @@
 
   .risk-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px;}
   @media (max-width:640px){.risk-row{grid-template-columns:1fr;}}
+
+  .next-buy-row{margin-bottom:26px;}
+  .next-buy-row .fin-panel{padding:16px 18px;}
+  .nb-top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+  .nb-countdown{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--accent2);letter-spacing:.03em;}
+  .nb-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+  @media (max-width:640px){.nb-grid{grid-template-columns:1fr;}}
+  .nb-row{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    border:1px solid var(--hair);background:var(--bg-panel-2);border-radius:10px;
+    padding:8px 10px;font-family:var(--mono);
+  }
+  .nb-asset-block{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .nb-asset{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;}
+  .nb-zone{font-size:10px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .nb-amount{font-size:13px;font-weight:700;white-space:nowrap;}
+  .nb-amount.tier-buy{color:var(--gain);}
+  .nb-amount.tier-hold{color:var(--accent2);}
+  .nb-amount.tier-sell{color:var(--loss);}
   .fin-panel .fp-headrow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
   .fin-panel .fp-asset-icon{font-size:15px;margin-right:4px;}
   .fp-fill.tier-buy{background:linear-gradient(90deg,#1f9d6b,var(--gain));}
@@ -699,6 +718,10 @@
         <div class="fp-label">XAUT (Gold) Risk Score</div>
         <div class="fp-headline">—</div>
       </div>
+    </div>
+
+    <div class="next-buy-row">
+      <div class="fin-panel" id="next-buy-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
     </div>
 
     <div class="sheet" id="sheet-foundation">
@@ -1790,6 +1813,103 @@ function renderRiskPanel(key, history, holdingUSD) {
     <div class="card-expand-hint">View details →</div>`;
 }
 
+/* =========================================================================
+   NEXT DCA BUY COUNTDOWN — weekly buys land on Monday; preview this
+   week's size/zone per asset from the already-fetched risk scores.
+   ========================================================================= */
+function nextDCADate() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun..6=Sat
+  const daysUntil = (1 - day + 7) % 7; // 0 when today is Monday
+  const date = new Date(now);
+  date.setDate(now.getDate() + daysUntil);
+  date.setHours(0, 0, 0, 0);
+  return { date, daysUntil };
+}
+
+function nbAmountLabel(d) {
+  const { latest, tierClass, armed, holdingUSD } = d;
+  if (tierClass === 'sell') {
+    return armed ? 'SELL — armed' : `SELL (not armed, $${holdingUSD.toFixed(0)}/$${SELL_TIER_MIN_HOLDING})`;
+  }
+  return latest.size_usd > 0 ? `$${latest.size_usd}` : 'Hold — $0';
+}
+
+function renderNextBuyCard(lastBuyByAsset, daysSinceFn) {
+  const panel = document.getElementById('next-buy-panel');
+  if (!panel) return;
+  const btc = window.__riskDetails && window.__riskDetails.btc;
+  const xaut = window.__riskDetails && window.__riskDetails.xaut;
+  if (!btc || !xaut) { panel.innerHTML = ''; return; }
+
+  const { date, daysUntil } = nextDCADate();
+  const countdown = daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil} days`;
+  const dateStr = date.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short' });
+
+  window.__nextBuyDetails = {
+    btc, xaut, daysUntil, date,
+    btcDaysSinceLastBuy: daysSinceFn(lastBuyByAsset.BTC),
+    xautDaysSinceLastBuy: daysSinceFn(lastBuyByAsset.XAUT),
+  };
+
+  const row = (label, d) => `
+    <div class="nb-row">
+      <div class="nb-asset-block">
+        <span class="nb-asset">${label}</span>
+        <span class="nb-zone">${d.latest.zone}</span>
+      </div>
+      <span class="nb-amount tier-${d.tierClass}">${nbAmountLabel(d)}</span>
+    </div>`;
+
+  panel.innerHTML = `
+    <div class="nb-top">
+      <div class="fp-label" style="margin-bottom:0;">Next DCA Buy</div>
+      <span class="nb-countdown">${countdown}</span>
+    </div>
+    <div class="fp-sub">${dateStr} · sized off today's risk scores</div>
+    <div class="nb-grid">
+      ${row('BTC', btc)}
+      ${row('XAUT', xaut)}
+    </div>
+    <div class="card-expand-hint">View details →</div>`;
+}
+
+function openNextBuyModal() {
+  const d = window.__nextBuyDetails;
+  if (!d) return;
+  const { btc, xaut, daysUntil, date, btcDaysSinceLastBuy, xautDaysSinceLastBuy } = d;
+  const countdown = daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil} days`;
+
+  const assetSection = (label, dd, daysSince) => `
+    <div class="modal-stats" style="margin-bottom:14px;">
+      <div><span class="k">Asset</span><span class="v">${label}</span></div>
+      <div><span class="k">Zone</span><span class="v">${dd.latest.zone}</span></div>
+      <div><span class="k">Risk score</span><span class="v">${dd.latest.composite_score.toFixed(3)}</span></div>
+      <div><span class="k">This week's size</span><span class="v">${nbAmountLabel(dd)}</span></div>
+      <div><span class="k">Action</span><span class="v">${dd.latest.action}</span></div>
+      <div><span class="k">Last buy</span><span class="v">${daysSince != null ? daysSince + 'd ago' : '—'}</span></div>
+    </div>`;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Next DCA Buy</span>
+      <span class="zone-badge" style="border-color:var(--accent2);color:var(--accent2);background:var(--accent-soft);">${countdown}</span>
+      <span class="modal-mv">${date.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short' })}</span>
+    </div>
+    <div class="modal-section">
+      <h3>This week's preview</h3>
+      ${assetSection('BTC', btc, btcDaysSinceLastBuy)}
+      ${assetSection('XAUT', xaut, xautDaysSinceLastBuy)}
+      <div class="modal-empty">
+        Buys land weekly on Mondays. Size and zone are read live from each asset's risk
+        score for today, so this preview can still shift before the buy actually executes
+        if the score moves between now and Monday.
+      </div>
+    </div>`;
+
+  showModal();
+}
+
 function openRiskModal(key) {
   const d = window.__riskDetails && window.__riskDetails[key];
   if (!d) return;
@@ -2387,6 +2507,11 @@ document.getElementById('risk-xaut-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('xaut'); }
 });
 
+document.getElementById('next-buy-panel').addEventListener('click', openNextBuyModal);
+document.getElementById('next-buy-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNextBuyModal(); }
+});
+
 document.getElementById('modal-close').addEventListener('click', closeAssetModal);
 document.getElementById('asset-modal').addEventListener('click', (e) => {
   if (e.target.id === 'asset-modal') closeAssetModal();
@@ -2530,6 +2655,8 @@ function render(data) {
       </div>`;
   });
   cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
+
+  renderNextBuyCard(lastBuyByAsset, daysSince);
 
   // draw sparklines now that the canvas elements exist in the DOM
   summary.assets.forEach((a) => {

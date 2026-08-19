@@ -497,6 +497,19 @@
   .fp-armed b{color:var(--ink-dim);}
   .fp-armed.is-armed b{color:var(--loss);}
 
+  .fp-streak{
+    display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;
+    font-family:var(--mono);font-size:11px;color:var(--ink-dim);
+    margin-top:8px;padding-top:8px;border-top:1px solid var(--hair);
+  }
+  .fp-streak-icon{font-size:11px;line-height:1;}
+  .fp-streak b{color:var(--ink);}
+  .fp-streak.tier-buy b{color:var(--gain);}
+  .fp-streak.tier-hold b{color:var(--accent2);}
+  .fp-streak.tier-sell b{color:var(--loss);}
+  .fp-streak-zone{color:var(--ink-faint);font-size:10px;}
+  .fp-streak-zone::before{content:'· ';}
+
   .fin-panel{border:1px solid var(--hair-bright);background:var(--bg-panel);padding:14px 16px;}
   .fin-panel .fp-label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
   .fin-panel .fp-headline{font-family:var(--mono);font-weight:700;font-size:22px;color:var(--ink);line-height:1.1;}
@@ -892,6 +905,48 @@ function riskTierClass(tier) {
   if (tier.startsWith('sell')) return 'sell';
   return 'hold';
 }
+
+/* =========================================================================
+   RISK TIER STREAK — how many consecutive days the score has sat in the
+   current buy/hold/sell tier, the finer-grained zone within it, and the
+   longest historical run of that tier for context.
+   ========================================================================= */
+function computeTierStreak(history) {
+  if (!history || !history.length) return null;
+  const n = history.length;
+  const currentTierClass = riskTierClass(history[n - 1].tier);
+  const currentZone = history[n - 1].zone;
+
+  let tierDays = 0;
+  let zoneDays = 0;
+  let zoneStillMatching = true;
+  for (let i = n - 1; i >= 0; i--) {
+    const tc = riskTierClass(history[i].tier);
+    if (tc !== currentTierClass) break;
+    tierDays++;
+    if (zoneStillMatching) {
+      if (history[i].zone === currentZone) zoneDays++;
+      else zoneStillMatching = false;
+    }
+  }
+
+  let longest = 0, run = 0;
+  for (let i = 0; i < n; i++) {
+    if (riskTierClass(history[i].tier) === currentTierClass) {
+      run++;
+      longest = Math.max(longest, run);
+    } else {
+      run = 0;
+    }
+  }
+
+  const startIdx = n - tierDays;
+  const since = history[startIdx] ? history[startIdx].date : null;
+
+  return { tierClass: currentTierClass, zone: currentZone, tierDays, zoneDays, longest, since, isBest: tierDays >= longest };
+}
+
+const TIER_STREAK_ICON = { buy: '🟢', hold: '🔵', sell: '🔴' };
 
 function fetchSheetJSONP(sheetName, timeoutMs = 15000, range = null) {
   return new Promise((resolve, reject) => {
@@ -1785,9 +1840,10 @@ function renderRiskPanel(key, history, holdingUSD) {
   const tierClass = riskTierClass(latest.tier);
   const armed = tierClass === 'sell' && holdingUSD >= SELL_TIER_MIN_HOLDING;
   const nearArmed = tierClass === 'sell' && holdingUSD < SELL_TIER_MIN_HOLDING;
+  const streak = computeTierStreak(history);
 
   window.__riskDetails = window.__riskDetails || {};
-  window.__riskDetails[key] = { history, latest, tierClass, holdingUSD, armed };
+  window.__riskDetails[key] = { history, latest, tierClass, holdingUSD, armed, streak };
 
   const compRows = Object.entries(latest.components || {}).map(([k, v]) => `
     <div class="comp-row">
@@ -1795,6 +1851,13 @@ function renderRiskPanel(key, history, holdingUSD) {
       <span class="comp-bar"><span style="width:${(v * 100).toFixed(0)}%"></span></span>
       <span class="comp-val">${v.toFixed(2)}</span>
     </div>`).join('');
+
+  const streakHtml = streak ? `
+    <div class="fp-streak tier-${tierClass}">
+      <span class="fp-streak-icon">${TIER_STREAK_ICON[tierClass]}</span>
+      <span><b>${streak.tierDays}d</b> in ${tierClass}${streak.isBest && streak.tierDays > 1 ? ' — new best' : ` · best ${streak.longest}d`}</span>
+      ${streak.zoneDays !== streak.tierDays ? `<span class="fp-streak-zone">${streak.zoneDays}d in "${streak.zone}"</span>` : ''}
+    </div>` : '';
 
   panel.innerHTML = `
     <div class="fp-headrow">
@@ -1805,6 +1868,7 @@ function renderRiskPanel(key, history, holdingUSD) {
     <div class="fp-sub">${latest.action}${latest.size_usd > 0 ? ` · <b>$${latest.size_usd}</b> this week` : ''}</div>
     <div class="fp-progress"><div class="fp-fill tier-${tierClass}" style="width:${(latest.composite_score * 100).toFixed(1)}%"></div></div>
     <div class="fp-ticks"><span>0.00 cheap</span><span>${latest.date}</span><span>1.00 hot</span></div>
+    ${streakHtml}
     <div class="fp-components">${compRows}</div>
     ${tierClass === 'sell' ? `
       <div class="fp-armed ${armed ? 'is-armed' : ''}">
@@ -1914,7 +1978,7 @@ function openRiskModal(key) {
   const d = window.__riskDetails && window.__riskDetails[key];
   if (!d) return;
   const src = RISK_SOURCES[key];
-  const { history, latest, tierClass, holdingUSD, armed } = d;
+  const { history, latest, tierClass, holdingUSD, armed, streak } = d;
 
   const compRowsHtml = Object.entries(latest.components || {}).map(([k, v]) => `
     <div><span class="k">${COMPONENT_LABELS[k] || k}</span><span class="v">${v.toFixed(3)}</span></div>`).join('');
@@ -1939,6 +2003,16 @@ function openRiskModal(key) {
       <div><span class="k">Current ${src.label} holding</span><span class="v">${fmtUSD(holdingUSD)}</span></div>
       <div><span class="k">Sell tier status</span><span class="v" style="color:${armed ? 'var(--loss)' : 'var(--ink-dim)'}">${armed ? 'Armed' : `Not armed (need $${SELL_TIER_MIN_HOLDING})`}</span></div>` : ''}
     </div>
+
+    ${streak ? `
+    <div class="modal-section">
+      <h3>Tier streak</h3>
+      <div class="modal-stats">
+        <div><span class="k">Days in ${tierClass}</span><span class="v">${streak.tierDays}d${streak.since ? ` (since ${streak.since})` : ''}</span></div>
+        <div><span class="k">Longest ${tierClass} streak</span><span class="v">${streak.longest}d${streak.isBest && streak.tierDays > 1 ? ' — current run is the record' : ''}</span></div>
+        ${streak.zoneDays !== streak.tierDays ? `<div><span class="k">Days in "${streak.zone}"</span><span class="v">${streak.zoneDays}d</span></div>` : ''}
+      </div>
+    </div>` : ''}
 
     <div class="modal-section">
       <h3>Score components — why today's score</h3>

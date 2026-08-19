@@ -57,6 +57,7 @@ jobs:
           fetch_tab "Savings Dashboard" "data/savings-dashboard.json"
           fetch_tab "DCA Log"           "data/dca-log.json"
           fetch_tab "DCA Rules"         "data/dca-rules.json"
+          fetch_tab "Monthly Balance"   "data/monthly-balance.json"
 
           echo "---- final data/ contents ----"
           ls -lah data/

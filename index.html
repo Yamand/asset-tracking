@@ -494,22 +494,25 @@
     margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--ink-faint);
     border:1px dashed var(--hair);border-radius:10px;padding:12px;line-height:1.5;
   }
-  .mb-table{display:flex;flex-direction:column;gap:6px;}
+  .mb-table{display:flex;flex-direction:column;gap:2px;}
   .mb-table-row{
-    display:grid;grid-template-columns:70px 90px 110px 1fr;align-items:center;gap:8px;
-    font-family:var(--mono);font-size:11px;padding:6px 0;border-bottom:1px solid var(--hair);
+    display:grid;grid-template-columns:88px 1fr auto;align-items:center;column-gap:14px;row-gap:2px;
+    font-family:var(--mono);font-size:12px;padding:9px 4px;border-bottom:1px solid var(--hair);
   }
   .mb-table-row:last-child{border-bottom:none;}
-  .mb-table-month{color:var(--ink-dim);font-weight:700;}
-  .mb-table-total{color:var(--ink);font-weight:700;}
+  .mb-table-month{color:var(--ink-dim);font-weight:700;white-space:nowrap;}
+  .mb-table-total{color:var(--ink);font-weight:700;white-space:nowrap;}
+  .mb-table-delta{text-align:right;white-space:nowrap;}
   .mb-table-delta.up{color:var(--gain);}
   .mb-table-delta.down{color:var(--loss);}
   .mb-table-delta.flat{color:var(--ink-faint);}
-  .mb-table-pct{color:var(--ink-faint);font-weight:400;}
-  .mb-table-notes{color:var(--ink-faint);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mb-table-pct{display:block;color:var(--ink-faint);font-weight:400;font-size:10px;margin-top:2px;}
+  .mb-table-notes{
+    grid-column:1 / -1;color:var(--ink-faint);font-size:10px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;
+  }
   @media (max-width:640px){
-    .mb-table-row{grid-template-columns:60px 80px 1fr;}
-    .mb-table-notes{display:none;}
+    .mb-table-row{grid-template-columns:76px 1fr auto;font-size:11px;}
   }
   .fin-panel .fp-headrow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
   .fin-panel .fp-asset-icon{font-size:15px;margin-right:4px;}
@@ -1230,18 +1233,32 @@ function parseDCARules(rows) {
 /* =========================================================================
    MONTHLY BALANCE — parses the "Monthly Balance" tab: Month, Total Net
    Savings ($), MoM Change ($), MoM Change (%), Notes. Skips template rows
-   where the month hasn't been logged yet.
+   where the month hasn't been logged yet. Google Sheets auto-converts
+   entries like "Aug-2026" into a real Date, so gviz returns a raw
+   Date(y,m,d) object for that cell rather than plain text — detect that
+   and format it as a clean "Aug 2026" label instead of showing it raw.
    ========================================================================= */
+function monthYearLabel(d) {
+  return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
 function parseMonthlyBalance(rows) {
   if (!rows) return [];
   return rows
-    .map((r) => ({
-      month: textOf(r, 0),
-      total: numOf(r, 1),
-      momChange: numOf(r, 2),
-      momPct: numOf(r, 3),
-      notes: textOf(r, 4),
-    }))
+    .map((r) => {
+      const rawMonthCell = r && r.c && r.c[0];
+      let month = textOf(r, 0);
+      if (rawMonthCell && typeof rawMonthCell.v === 'string' && rawMonthCell.v.startsWith('Date(')) {
+        const d = parseGvizDate(rawMonthCell.v);
+        if (d) month = monthYearLabel(d);
+      }
+      return {
+        month,
+        total: numOf(r, 1),
+        momChange: numOf(r, 2),
+        momPct: numOf(r, 3),
+        notes: textOf(r, 4),
+      };
+    })
     .filter((r) => r.month && r.total != null);
 }
 
@@ -2099,7 +2116,7 @@ function openMonthlyBalanceModal() {
       <span class="mb-table-total">${fmtUSD(r.total)}</span>
       <span class="mb-table-delta ${r.momChange == null ? 'flat' : r.momChange > 0 ? 'up' : r.momChange < 0 ? 'down' : 'flat'}">
         ${r.momChange == null ? '—' : `${r.momChange >= 0 ? '+' : ''}${fmtUSD(r.momChange)}`}
-        ${r.momPct != null ? `<span class="mb-table-pct">(${fmtPct(r.momPct)})</span>` : ''}
+        ${r.momPct != null ? `<span class="mb-table-pct">${fmtPct(r.momPct)}</span>` : ''}
       </span>
       ${r.notes ? `<span class="mb-table-notes">${r.notes}</span>` : ''}
     </div>`).join('');

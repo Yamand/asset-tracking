@@ -474,6 +474,43 @@
   .nb-amount.tier-buy{color:var(--gain);}
   .nb-amount.tier-hold{color:var(--accent2);}
   .nb-amount.tier-sell{color:var(--loss);}
+
+  .monthly-balance-row{margin-bottom:26px;}
+  .monthly-balance-row .fin-panel{padding:16px 18px;}
+  .mb-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .mb-headline-block{display:flex;flex-direction:column;gap:2px;}
+  .mb-headline{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--ink);}
+  .mb-sub{font-family:var(--mono);font-size:11px;color:var(--ink-faint);}
+  .mb-delta{
+    font-family:var(--mono);font-size:12px;font-weight:700;
+    padding:3px 8px;border-radius:6px;white-space:nowrap;
+  }
+  .mb-delta.up{color:var(--gain);background:rgba(52,211,153,0.12);}
+  .mb-delta.down{color:var(--loss);background:rgba(251,113,133,0.12);}
+  .mb-delta.flat{color:var(--ink-dim);background:var(--bg-panel-2);}
+  .mb-chart-box{margin-top:12px;height:90px;}
+  .mb-chart-box canvas{width:100%;height:90px;display:block;}
+  .mb-empty{
+    margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+    border:1px dashed var(--hair);border-radius:10px;padding:12px;line-height:1.5;
+  }
+  .mb-table{display:flex;flex-direction:column;gap:6px;}
+  .mb-table-row{
+    display:grid;grid-template-columns:70px 90px 110px 1fr;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:11px;padding:6px 0;border-bottom:1px solid var(--hair);
+  }
+  .mb-table-row:last-child{border-bottom:none;}
+  .mb-table-month{color:var(--ink-dim);font-weight:700;}
+  .mb-table-total{color:var(--ink);font-weight:700;}
+  .mb-table-delta.up{color:var(--gain);}
+  .mb-table-delta.down{color:var(--loss);}
+  .mb-table-delta.flat{color:var(--ink-faint);}
+  .mb-table-pct{color:var(--ink-faint);font-weight:400;}
+  .mb-table-notes{color:var(--ink-faint);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  @media (max-width:640px){
+    .mb-table-row{grid-template-columns:60px 80px 1fr;}
+    .mb-table-notes{display:none;}
+  }
   .fin-panel .fp-headrow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
   .fin-panel .fp-asset-icon{font-size:15px;margin-right:4px;}
   .fp-fill.tier-buy{background:linear-gradient(90deg,#1f9d6b,var(--gain));}
@@ -737,6 +774,10 @@
       <div class="fin-panel" id="next-buy-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
     </div>
 
+    <div class="monthly-balance-row">
+      <div class="fin-panel" id="monthly-balance-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+    </div>
+
     <div class="sheet" id="sheet-foundation">
       <div class="sheet-head">
         <span class="tag">01</span>
@@ -850,6 +891,7 @@ const TABS = {
   savings: 'Savings Dashboard',
   log: 'DCA Log',
   rules: 'DCA Rules',
+  monthlyBalance: 'Monthly Balance',
 };
 
 // ---- personal constants (update these if life changes) ----
@@ -875,6 +917,7 @@ const DATA_FILE_MAP = {
   'Savings Dashboard': 'data/savings-dashboard.json',
   'DCA Log': 'data/dca-log.json',
   'DCA Rules': 'data/dca-rules.json',
+  'Monthly Balance': 'data/monthly-balance.json',
 };
 
 // ---- live risk score sources (separate GitHub-Pages repos, fetched read-only) ----
@@ -1182,6 +1225,24 @@ function parseDCARules(rows) {
     btc: parseRuleBlock(rows, (t) => /btc/i.test(t) && /week/i.test(t)),
     xaut: parseRuleBlock(rows, (t) => /xaut/i.test(t) && /week/i.test(t)),
   };
+}
+
+/* =========================================================================
+   MONTHLY BALANCE — parses the "Monthly Balance" tab: Month, Total Net
+   Savings ($), MoM Change ($), MoM Change (%), Notes. Skips template rows
+   where the month hasn't been logged yet.
+   ========================================================================= */
+function parseMonthlyBalance(rows) {
+  if (!rows) return [];
+  return rows
+    .map((r) => ({
+      month: textOf(r, 0),
+      total: numOf(r, 1),
+      momChange: numOf(r, 2),
+      momPct: numOf(r, 3),
+      notes: textOf(r, 4),
+    }))
+    .filter((r) => r.month && r.total != null);
 }
 
 /* =========================================================================
@@ -1974,6 +2035,108 @@ function openNextBuyModal() {
   showModal();
 }
 
+/* =========================================================================
+   MONTHLY BALANCE PANEL — trend of Total Net Savings logged month-by-month
+   in the "Monthly Balance" sheet tab, plus MoM deltas.
+   ========================================================================= */
+function renderMonthlyBalancePanel(monthlyBalance, liveTotalNetSavings) {
+  const panel = document.getElementById('monthly-balance-panel');
+  if (!panel) return;
+
+  const rows = (monthlyBalance || []).slice(); // already filtered to logged rows
+  window.__monthlyBalanceDetails = { rows, liveTotalNetSavings };
+
+  if (!rows.length) {
+    panel.innerHTML = `
+      <div class="fp-label" style="margin-bottom:6px;">Monthly Balance</div>
+      <div class="mb-empty">
+        No months logged yet. Add a row to the "Monthly Balance" tab in your sheet at the
+        end of each month (Month, Total Net Savings) and this panel will fill in with a
+        trend line and month-over-month deltas.
+      </div>`;
+    return;
+  }
+
+  const latest = rows[rows.length - 1];
+  const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+  const delta = latest.momChange != null ? latest.momChange : (prev ? latest.total - prev.total : null);
+  const deltaPct = latest.momPct != null ? latest.momPct : (prev && prev.total ? (latest.total - prev.total) / prev.total : null);
+  const deltaDir = delta == null ? 'flat' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const deltaLabel = delta == null ? 'First month logged' : `${delta >= 0 ? '+' : ''}${fmtUSD(delta)} (${fmtPct(deltaPct)})`;
+
+  panel.innerHTML = `
+    <div class="mb-top">
+      <div class="mb-headline-block">
+        <div class="fp-label" style="margin-bottom:0;">Monthly Balance</div>
+        <span class="mb-headline">${fmtUSD(latest.total)}</span>
+        <span class="mb-sub">${latest.month}${rows.length > 1 ? ` · ${rows.length} months logged` : ''}</span>
+      </div>
+      <span class="mb-delta ${deltaDir}">${deltaLabel}</span>
+    </div>
+    ${rows.length > 1 ? `<div class="mb-chart-box"><canvas id="monthly-balance-sparkline"></canvas></div>` : ''}
+    <div class="card-expand-hint">View details →</div>`;
+
+  if (rows.length > 1) {
+    const canvas = document.getElementById('monthly-balance-sparkline');
+    requestAnimationFrame(() => {
+      const points = rows.map((r, i) => ({ x: new Date(2000, i, 1), y: r.total })); // ordinal x-axis, labels come from month text
+      drawLineChart(canvas, [
+        { points, color: '#8B5CF6', width: 2, fill: true },
+      ], { yFormatter: (v) => '$' + v.toFixed(0), padL: 44 });
+    });
+  }
+}
+
+function openMonthlyBalanceModal() {
+  const d = window.__monthlyBalanceDetails;
+  if (!d || !d.rows.length) return;
+  const { rows } = d;
+  const latest = rows[rows.length - 1];
+
+  const tableRows = rows.slice().reverse().map((r) => `
+    <div class="mb-table-row">
+      <span class="mb-table-month">${r.month}</span>
+      <span class="mb-table-total">${fmtUSD(r.total)}</span>
+      <span class="mb-table-delta ${r.momChange == null ? 'flat' : r.momChange > 0 ? 'up' : r.momChange < 0 ? 'down' : 'flat'}">
+        ${r.momChange == null ? '—' : `${r.momChange >= 0 ? '+' : ''}${fmtUSD(r.momChange)}`}
+        ${r.momPct != null ? `<span class="mb-table-pct">(${fmtPct(r.momPct)})</span>` : ''}
+      </span>
+      ${r.notes ? `<span class="mb-table-notes">${r.notes}</span>` : ''}
+    </div>`).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Monthly Balance</span>
+      <span class="modal-mv">${fmtUSD(latest.total)}</span>
+      <span class="modal-pl">as of ${latest.month}</span>
+    </div>
+
+    <div class="modal-section">
+      <h3>Trend — ${rows.length} month${rows.length === 1 ? '' : 's'} logged</h3>
+      <div class="modal-chart-box">
+        ${rows.length > 1 ? `<canvas id="modal-monthly-balance-chart"></canvas>` : `<div class="modal-empty">Log at least 2 months to see a trend line.</div>`}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>History</h3>
+      <div class="mb-table">${tableRows}</div>
+    </div>
+  `;
+
+  showModal();
+
+  if (rows.length > 1) {
+    const canvas = document.getElementById('modal-monthly-balance-chart');
+    requestAnimationFrame(() => {
+      const points = rows.map((r, i) => ({ x: new Date(2000, i, 1), y: r.total }));
+      drawLineChart(canvas, [
+        { points, color: '#8B5CF6', width: 2, fill: true },
+      ], { yFormatter: (v) => '$' + v.toFixed(0), padL: 44 });
+    });
+  }
+}
+
 function openRiskModal(key) {
   const d = window.__riskDetails && window.__riskDetails[key];
   if (!d) return;
@@ -2586,6 +2749,15 @@ document.getElementById('next-buy-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNextBuyModal(); }
 });
 
+document.getElementById('monthly-balance-panel').addEventListener('click', () => {
+  if (window.__monthlyBalanceDetails && window.__monthlyBalanceDetails.rows.length) openMonthlyBalanceModal();
+});
+document.getElementById('monthly-balance-panel').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && window.__monthlyBalanceDetails && window.__monthlyBalanceDetails.rows.length) {
+    e.preventDefault(); openMonthlyBalanceModal();
+  }
+});
+
 document.getElementById('modal-close').addEventListener('click', closeAssetModal);
 document.getElementById('asset-modal').addEventListener('click', (e) => {
   if (e.target.id === 'asset-modal') closeAssetModal();
@@ -2595,7 +2767,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 function render(data) {
-  const { savings, summary, trades, rules, chart } = data;
+  const { savings, summary, trades, rules, chart, monthlyBalance } = data;
 
   // ---- debt countdown + milestones ----
   renderDebtCountdown();
@@ -2611,6 +2783,9 @@ function render(data) {
   const riskRaw = window.__riskHistoryRaw || {};
   renderRiskPanel('btc', riskRaw.btc, holdingByAsset.BTC || 0);
   renderRiskPanel('xaut', riskRaw.xaut, holdingByAsset.XAUT || 0);
+
+  // ---- monthly balance trend ----
+  renderMonthlyBalancePanel(monthlyBalance, savings.totalNetSavings);
 
   // ---- title block ----
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
@@ -2801,6 +2976,7 @@ const EMPTY = {
   savings: { fxRate: null, accounts: [], cashSubtotal: 0, okx: {}, okxSubtotal: 0, totalNetSavings: 0 },
   log: [],
   rules: { btc: { label: 'BTC / USDT', rules: [] }, xaut: { label: 'XAUT / USDT', rules: [] } },
+  monthlyBalance: [],
 };
 
 async function loadTab(key, label, parser, timeoutMs, range) {
@@ -2821,10 +2997,11 @@ async function loadAll() {
   document.getElementById('content').classList.add('hidden');
   window.__rawTables = {};
 
-  const [savingsR, logR, rulesR, btcRiskR, xautRiskR] = await Promise.all([
+  const [savingsR, logR, rulesR, monthlyBalanceR, btcRiskR, xautRiskR] = await Promise.all([
     loadTab('savings', TABS.savings, parseSavingsDashboard),
     loadTab('log', TABS.log, parseDCALog),
     loadTab('rules', TABS.rules, parseDCARules),
+    loadTab('monthlyBalance', TABS.monthlyBalance, parseMonthlyBalance),
     fetchRiskHistory('btc').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
     fetchRiskHistory('xaut').then((h) => ({ ok: true, data: h })).catch((err) => ({ ok: false, error: err.message, data: null })),
   ]);
@@ -2854,6 +3031,7 @@ async function loadAll() {
     savings: savingsR.data,
     trades,
     rules: rulesR.data,
+    monthlyBalance: monthlyBalanceR.data,
     summary: computeSummaryFromLog(trades),
     chart: computeChartDataFromLog(trades),
   });

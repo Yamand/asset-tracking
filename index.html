@@ -256,10 +256,24 @@
     position:relative;
   }
   .card.ghost{opacity:.45;border-style:dashed;}
-  .card.stable{cursor:default;border-left:2px solid var(--accent2);}
-  .card.stable .stable-tag{background:rgba(34,211,238,0.12);color:var(--accent2);border-color:var(--accent2);}
-  .card.stable .mv{color:var(--accent2);}
-  .card.stable .meta{grid-template-columns:1fr 1fr;}
+  .card.stable{
+    cursor:default;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;gap:6px;
+    background:linear-gradient(180deg, rgba(34,211,238,0.09), rgba(34,211,238,0.02));
+    border:1px solid rgba(34,211,238,0.35);
+    padding:20px 16px;
+  }
+  .card.stable .stable-icon{
+    width:32px;height:32px;border-radius:50%;
+    border:1px solid var(--accent2);color:var(--accent2);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:700;font-size:16px;
+    margin-bottom:2px;
+  }
+  .card.stable .asset-name{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;}
+  .card.stable .mv{color:var(--accent2);margin:2px 0 0;}
+  .card.stable .stable-note{font-family:var(--mono);font-size:10px;color:var(--ink-faint);letter-spacing:.02em;}
   .card .asset-name{font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.02em;}
   .card .alloc{
     font-family:var(--mono);font-size:11px;color:var(--ink-faint);
@@ -3069,13 +3083,10 @@ function render(data) {
   if (usdtValue != null) {
     cardsHtml += `
       <div class="card stable">
-        <span class="alloc stable-tag">Stablecoin</span>
-        <div class="asset-name">USDT</div>
+        <div class="stable-icon">$</div>
+        <div class="asset-name">USDT · Tether</div>
         <div class="mv">${fmtUSD(usdtValue)}</div>
-        <div class="meta">
-          <div><span class="k">Peg</span> $1.00</div>
-          <div><span class="k">Venue</span> OKX</div>
-        </div>
+        <div class="stable-note">Pegged 1:1 to USD, held on OKX</div>
       </div>`;
   }
   ghostAssets.forEach((sym) => {

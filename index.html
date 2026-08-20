@@ -382,6 +382,24 @@
   .state-banner.error a{color:var(--loss);text-decoration:underline;}
   .hidden{display:none !important;}
 
+  /* TAB NAV + CONTENT */
+  .tab-nav{
+    display:flex;gap:1px;margin-bottom:20px;border-bottom:1px solid var(--hair);
+  }
+  .tab-btn{
+    flex:1;padding:12px 16px;
+    font-family:var(--serif);font-size:14px;font-weight:500;
+    color:var(--ink-dim);background:transparent;border:none;cursor:pointer;
+    border-bottom:2px solid transparent;transition:all 120ms ease;
+  }
+  .tab-btn:hover{color:var(--ink);background:var(--bg-panel-2);}
+  .tab-btn.active{color:var(--ink);border-bottom-color:var(--accent2);}
+  .tab-content{display:block;}
+  .tab-content.hidden{display:none;}
+  @media (max-width:640px){
+    .tab-btn{font-size:13px;padding:10px 12px;}
+  }
+
   .pos{color:var(--gain);}
   .neg{color:var(--loss);}
 
@@ -740,104 +758,91 @@
 
   <div id="content" class="hidden">
 
-    <div class="hero">
-      <div class="eyebrow">Total Net Worth — USD</div>
-      <div class="figure" id="hero-total">$0<span class="cents">.00</span></div>
-      <div class="delta" id="hero-delta"></div>
-      <div class="hero-bar">
-        <div class="bar">
-          <div class="seg-cash" id="seg-cash" style="width:50%"></div>
-          <div class="seg-okx" id="seg-okx" style="width:50%"></div>
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="finance">Finance Plan</button>
+      <button class="tab-btn" data-tab="risk">Risk Scores</button>
+    </div>
+
+    <div class="tab-content" id="tab-finance">
+      <div class="hero">
+        <div class="eyebrow">Total Net Worth — USD</div>
+        <div class="figure" id="hero-total">$0<span class="cents">.00</span></div>
+        <div class="delta" id="hero-delta"></div>
+        <div class="hero-bar">
+          <div class="bar">
+            <div class="seg-cash" id="seg-cash" style="width:50%"></div>
+            <div class="seg-okx" id="seg-okx" style="width:50%"></div>
+          </div>
+          <svg class="hero-dims" id="hero-dims" viewBox="0 0 640 46" preserveAspectRatio="none"></svg>
         </div>
-        <svg class="hero-dims" id="hero-dims" viewBox="0 0 640 46" preserveAspectRatio="none"></svg>
       </div>
-    </div>
 
-    <div class="pet-panel" id="pet-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      <div class="pet-panel" id="pet-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
 
-    <div class="fin-health-row">
-      <div class="fin-panel" id="debt-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-      <div class="fin-panel" id="milestone-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-      <div class="fin-panel" id="coastfi-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-      <div class="fin-panel" id="emergency-fund-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-    </div>
-
-    <div class="risk-row">
-      <div class="fin-panel" id="risk-btc-panel" tabindex="0" role="button" aria-haspopup="dialog">
-        <div class="fp-label">BTC Risk Score</div>
-        <div class="fp-headline">—</div>
+      <div class="fin-health-row">
+        <div class="fin-panel" id="debt-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+        <div class="fin-panel" id="milestone-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+        <div class="fin-panel" id="coastfi-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+        <div class="fin-panel" id="emergency-fund-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       </div>
-      <div class="fin-panel" id="risk-xaut-panel" tabindex="0" role="button" aria-haspopup="dialog">
-        <div class="fp-label">XAUT (Gold) Risk Score</div>
-        <div class="fp-headline">—</div>
-      </div>
-    </div>
 
-    <div class="next-buy-row">
-      <div class="fin-panel" id="next-buy-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-    </div>
-
-    <div class="monthly-balance-row">
-      <div class="fin-panel" id="monthly-balance-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-    </div>
-
-    <div class="sheet" id="sheet-foundation">
-      <div class="sheet-head">
-        <span class="tag">01</span>
-        <h2>Cash &amp; Bank</h2>
-        <span class="note" id="fx-note"></span>
-      </div>
-      <table class="acct-table">
-        <thead><tr><th>Account</th><th>Currency</th><th>Balance (native)</th><th>Balance (USD)</th></tr></thead>
-        <tbody id="acct-rows"></tbody>
-      </table>
-    </div>
-
-    <div class="sheet" id="sheet-superstructure">
-      <div class="sheet-head">
-        <span class="tag">02</span>
-        <h2>Holdings — DCA Positions</h2>
-      </div>
-      <div class="cards" id="asset-cards"></div>
-      <div class="pace-strip" id="pace-strip"></div>
-    </div>
-
-    <div class="sheet" id="sheet-history">
-      <div class="sheet-head">
-        <span class="tag">03</span>
-        <h2>Performance — Equity Curve</h2>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">
-          <span>Total invested vs. portfolio value</span>
-          <span class="legend">
-            <span><span class="swatch" style="background:var(--ink-dim);border-top:1px dashed var(--ink-dim);height:0;"></span>Invested</span>
-            <span><span class="swatch" style="background:var(--accent);"></span>Value</span>
-          </span>
+      <div class="sheet" id="sheet-foundation">
+        <div class="sheet-head">
+          <span class="tag">01</span>
+          <h2>Cash &amp; Bank</h2>
+          <span class="note" id="fx-note"></span>
         </div>
-        <canvas id="chart-total"></canvas>
+        <table class="acct-table">
+          <thead><tr><th>Account</th><th>Currency</th><th>Balance (native)</th><th>Balance (USD)</th></tr></thead>
+          <tbody id="acct-rows"></tbody>
+        </table>
       </div>
-      <div class="mini-charts">
-        <div class="chart-box">
-          <div class="chart-title"><span>BTC — avg cost vs. market</span></div>
-          <canvas id="chart-btc"></canvas>
+
+      <div class="sheet" id="sheet-superstructure">
+        <div class="sheet-head">
+          <span class="tag">02</span>
+          <h2>Holdings — DCA Positions</h2>
+        </div>
+        <div class="cards" id="asset-cards"></div>
+        <div class="pace-strip" id="pace-strip"></div>
+      </div>
+
+      <div class="sheet" id="sheet-history">
+        <div class="sheet-head">
+          <span class="tag">03</span>
+          <h2>Performance — Equity Curve</h2>
         </div>
         <div class="chart-box">
-          <div class="chart-title"><span>XAUT — avg cost vs. market</span></div>
-          <canvas id="chart-xaut"></canvas>
+          <div class="chart-title">
+            <span>Total invested vs. portfolio value</span>
+            <span class="legend">
+              <span><span class="swatch" style="background:var(--ink-dim);border-top:1px dashed var(--ink-dim);height:0;"></span>Invested</span>
+              <span><span class="swatch" style="background:var(--accent);"></span>Value</span>
+            </span>
+          </div>
+          <canvas id="chart-total"></canvas>
+        </div>
+        <div class="mini-charts">
+          <div class="chart-box">
+            <div class="chart-title"><span>BTC — avg cost vs. market</span></div>
+            <canvas id="chart-btc"></canvas>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title"><span>XAUT — avg cost vs. market</span></div>
+            <canvas id="chart-xaut"></canvas>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="sheet" id="sheet-log">
-      <div class="sheet-head">
-        <span class="tag">04</span>
-        <h2>Trade Log — Weekly Trades</h2>
-      </div>
-      <div class="log-controls">
-        <select id="log-filter">
-          <option value="">All assets</option>
-          <option value="BTC">BTC</option>
+      <div class="sheet" id="sheet-log">
+        <div class="sheet-head">
+          <span class="tag">04</span>
+          <h2>Trade Log — Weekly Trades</h2>
+        </div>
+        <div class="log-controls">
+          <select id="log-filter">
+            <option value="">All assets</option>
+            <option value="BTC">BTC</option>
           <option value="XAUT">XAUT</option>
         </select>
       </div>
@@ -859,6 +864,28 @@
           </thead>
           <tbody id="log-rows"></tbody>
         </table>
+      </div>
+    </div>
+    </div>
+
+    <div class="tab-content hidden" id="tab-risk">
+      <div class="risk-row">
+        <div class="fin-panel" id="risk-btc-panel" tabindex="0" role="button" aria-haspopup="dialog">
+          <div class="fp-label">BTC Risk Score</div>
+          <div class="fp-headline">—</div>
+        </div>
+        <div class="fin-panel" id="risk-xaut-panel" tabindex="0" role="button" aria-haspopup="dialog">
+          <div class="fp-label">XAUT (Gold) Risk Score</div>
+          <div class="fp-headline">—</div>
+        </div>
+      </div>
+
+      <div class="next-buy-row">
+        <div class="fin-panel" id="next-buy-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      </div>
+
+      <div class="monthly-balance-row">
+        <div class="fin-panel" id="monthly-balance-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       </div>
     </div>
 
@@ -2873,6 +2900,23 @@ document.getElementById('asset-modal').addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.getElementById('asset-modal').classList.contains('hidden')) closeAssetModal();
 });
+
+/* TAB SWITCHING */
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tabName).classList.remove('hidden');
+  document.querySelector('.tab-btn[data-tab="' + tabName + '"]').classList.add('active');
+  localStorage.setItem('activeTab', tabName);
+  if (window.__lastChart) renderCharts(window.__lastChart);
+  redrawHoldingSparklines();
+  redrawMonthlyBalancePanelChart();
+}
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+const activeTab = localStorage.getItem('activeTab') || 'finance';
+switchTab(activeTab);
 
 function render(data) {
   const { savings, summary, trades, rules, chart, monthlyBalance } = data;

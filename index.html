@@ -256,6 +256,8 @@
     position:relative;
   }
   .card.ghost{opacity:.45;border-style:dashed;}
+  .card.stable{cursor:default;}
+  .card.stable .stable-tag{background:rgba(34,211,238,0.12);color:var(--accent2);border-color:var(--accent2);}
   .card .asset-name{font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.02em;}
   .card .alloc{
     font-family:var(--mono);font-size:11px;color:var(--ink-faint);
@@ -3061,6 +3063,16 @@ function render(data) {
         <div class="card-expand-hint">View details →</div>
       </div>`;
   });
+  const usdtValue = savings.okx ? savings.okx['USDT'] : null;
+  if (usdtValue != null) {
+    cardsHtml += `
+      <div class="card stable">
+        <span class="alloc stable-tag">Stablecoin</span>
+        <div class="asset-name">USDT</div>
+        <div class="mv">${fmtUSD(usdtValue)}</div>
+        <div class="pl">Held on OKX — 1:1 USD peg</div>
+      </div>`;
+  }
   ghostAssets.forEach((sym) => {
     cardsHtml += `
       <div class="card ghost">

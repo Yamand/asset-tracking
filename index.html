@@ -1309,16 +1309,19 @@ function drawLineChart(canvas, seriesList, opts = {}) {
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   if (rect.width === 0) return;
-  // Round the CSS box to whole pixels and lock canvas.style to that exact
-  // size before scaling for DPR. Without this, a fluid (%) width can hand
-  // getBoundingClientRect() a fractional value (e.g. 342.67px); multiplying
-  // that by dpr and assigning to canvas.width truncates to an integer that
-  // no longer matches the CSS box the browser stretches the canvas into,
-  // so everything — especially small text labels — gets resampled/blurred.
+  // Round the drawing-buffer resolution to avoid the classic high-DPI blur
+  // where a fractional CSS width (e.g. 342.67px from a fluid layout) gets
+  // truncated when multiplied by dpr and assigned to canvas.width. We
+  // deliberately do NOT pin canvas.style.width/height to a fixed px value
+  // — every canvas here already has an explicit CSS rule (width:100% etc.)
+  // controlling its displayed size, so the buffer resolution can be set
+  // independently without affecting layout. Pinning it used to freeze the
+  // canvas at whatever size it had on the last draw: on window resize,
+  // getBoundingClientRect() would then report that stale locked size
+  // instead of the container's new size, so the chart never shrank with
+  // its card and the line visibly spilled outside it.
   const cssW = Math.round(rect.width);
   const cssH = Math.round(rect.height);
-  canvas.style.width = cssW + 'px';
-  canvas.style.height = cssH + 'px';
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
   const ctx = canvas.getContext('2d');
@@ -2389,8 +2392,6 @@ function drawSparkline(canvas, riskHistory) {
   if (!rect.width || !riskHistory.length) return;
   const cssW = Math.round(rect.width);
   const cssH = Math.round(rect.height);
-  canvas.style.width = cssW + 'px';
-  canvas.style.height = cssH + 'px';
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
   const ctx = canvas.getContext('2d');

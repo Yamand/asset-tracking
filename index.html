@@ -765,8 +765,6 @@
       <button class="tab-btn" data-tab="performance">Performance</button>
       <button class="tab-btn" data-tab="log">Trade Log</button>
       <button class="tab-btn" data-tab="risk">Risk Scores</button>
-      <button class="tab-btn" data-tab="nextbuy">Next Buy</button>
-      <button class="tab-btn" data-tab="monthly">Monthly Balance</button>
     </div>
 
     <div class="tab-content" id="tab-overview">
@@ -845,6 +843,10 @@
           </div>
         </div>
       </div>
+
+      <div class="monthly-balance-row">
+        <div class="fin-panel" id="monthly-balance-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      </div>
     </div>
 
     <div class="tab-content hidden" id="tab-log">
@@ -893,17 +895,9 @@
           <div class="fp-headline">—</div>
         </div>
       </div>
-    </div>
 
-    <div class="tab-content hidden" id="tab-nextbuy">
       <div class="next-buy-row">
         <div class="fin-panel" id="next-buy-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-      </div>
-    </div>
-
-    <div class="tab-content hidden" id="tab-monthly">
-      <div class="monthly-balance-row">
-        <div class="fin-panel" id="monthly-balance-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       </div>
     </div>
 
@@ -2920,7 +2914,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* TAB SWITCHING */
-const VALID_TABS = ['overview', 'cash', 'holdings', 'performance', 'log', 'risk', 'nextbuy', 'monthly'];
+const VALID_TABS = ['overview', 'cash', 'holdings', 'performance', 'log', 'risk'];
 function switchTab(tabName) {
   if (!VALID_TABS.includes(tabName)) tabName = 'overview';
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));

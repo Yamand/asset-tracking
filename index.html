@@ -384,20 +384,20 @@
 
   /* TAB NAV + CONTENT */
   .tab-nav{
-    display:flex;gap:1px;margin-bottom:20px;border-bottom:1px solid var(--hair);
+    display:flex;flex-wrap:wrap;gap:1px;margin-bottom:20px;border-bottom:1px solid var(--hair);
   }
   .tab-btn{
-    flex:1;padding:12px 16px;
-    font-family:var(--serif);font-size:14px;font-weight:500;
+    flex:1 1 130px;padding:12px 14px;
+    font-family:var(--serif);font-size:13px;font-weight:500;
     color:var(--ink-dim);background:transparent;border:none;cursor:pointer;
-    border-bottom:2px solid transparent;transition:all 120ms ease;
+    border-bottom:2px solid transparent;transition:all 120ms ease;white-space:nowrap;
   }
   .tab-btn:hover{color:var(--ink);background:var(--bg-panel-2);}
   .tab-btn.active{color:var(--ink);border-bottom-color:var(--accent2);}
   .tab-content{display:block;}
   .tab-content.hidden{display:none;}
   @media (max-width:640px){
-    .tab-btn{font-size:13px;padding:10px 12px;}
+    .tab-btn{font-size:12px;padding:10px 8px;flex:1 1 45%;}
   }
 
   .pos{color:var(--gain);}
@@ -759,11 +759,17 @@
   <div id="content" class="hidden">
 
     <div class="tab-nav">
-      <button class="tab-btn active" data-tab="finance">Finance Plan</button>
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="cash">Cash &amp; Bank</button>
+      <button class="tab-btn" data-tab="holdings">Holdings</button>
+      <button class="tab-btn" data-tab="performance">Performance</button>
+      <button class="tab-btn" data-tab="log">Trade Log</button>
       <button class="tab-btn" data-tab="risk">Risk Scores</button>
+      <button class="tab-btn" data-tab="nextbuy">Next Buy</button>
+      <button class="tab-btn" data-tab="monthly">Monthly Balance</button>
     </div>
 
-    <div class="tab-content" id="tab-finance">
+    <div class="tab-content" id="tab-overview">
       <div class="hero">
         <div class="eyebrow">Total Net Worth — USD</div>
         <div class="figure" id="hero-total">$0<span class="cents">.00</span></div>
@@ -785,7 +791,9 @@
         <div class="fin-panel" id="coastfi-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
         <div class="fin-panel" id="emergency-fund-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       </div>
+    </div>
 
+    <div class="tab-content hidden" id="tab-cash">
       <div class="sheet" id="sheet-foundation">
         <div class="sheet-head">
           <span class="tag">01</span>
@@ -797,7 +805,9 @@
           <tbody id="acct-rows"></tbody>
         </table>
       </div>
+    </div>
 
+    <div class="tab-content hidden" id="tab-holdings">
       <div class="sheet" id="sheet-superstructure">
         <div class="sheet-head">
           <span class="tag">02</span>
@@ -806,7 +816,9 @@
         <div class="cards" id="asset-cards"></div>
         <div class="pace-strip" id="pace-strip"></div>
       </div>
+    </div>
 
+    <div class="tab-content hidden" id="tab-performance">
       <div class="sheet" id="sheet-history">
         <div class="sheet-head">
           <span class="tag">03</span>
@@ -833,7 +845,9 @@
           </div>
         </div>
       </div>
+    </div>
 
+    <div class="tab-content hidden" id="tab-log">
       <div class="sheet" id="sheet-log">
         <div class="sheet-head">
           <span class="tag">04</span>
@@ -879,11 +893,15 @@
           <div class="fp-headline">—</div>
         </div>
       </div>
+    </div>
 
+    <div class="tab-content hidden" id="tab-nextbuy">
       <div class="next-buy-row">
         <div class="fin-panel" id="next-buy-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       </div>
+    </div>
 
+    <div class="tab-content hidden" id="tab-monthly">
       <div class="monthly-balance-row">
         <div class="fin-panel" id="monthly-balance-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
       </div>
@@ -2902,7 +2920,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* TAB SWITCHING */
+const VALID_TABS = ['overview', 'cash', 'holdings', 'performance', 'log', 'risk', 'nextbuy', 'monthly'];
 function switchTab(tabName) {
+  if (!VALID_TABS.includes(tabName)) tabName = 'overview';
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tabName).classList.remove('hidden');
@@ -2915,7 +2935,7 @@ function switchTab(tabName) {
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
-const activeTab = localStorage.getItem('activeTab') || 'finance';
+const activeTab = localStorage.getItem('activeTab') || 'overview';
 switchTab(activeTab);
 
 function render(data) {

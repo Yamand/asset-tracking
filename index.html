@@ -472,6 +472,7 @@
   .pet-o-u2{animation:pet-orbit 9.5s linear infinite reverse;transform-box:fill-box;transform-origin:22px 6px;}
   @keyframes pet-drift{0%{transform:translate(0,0);opacity:.7;}50%{transform:translate(6px,-10px);opacity:.3;}100%{transform:translate(0,0);opacity:.7;}}
   .pet-drift-g{animation:pet-drift 5s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%;}
+  .pet-o-ms{animation-name:pet-orbit;animation-timing-function:linear;animation-iteration-count:infinite;transform-box:fill-box;}
   @media (prefers-reduced-motion:reduce){[class^="pet-pulse-"],[class^="pet-o-"],.pet-drift-g,.pet-panel::before{animation:none!important;}}
   .pet-info{flex:1;min-width:190px;position:relative;}
   .pet-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:3px;}
@@ -481,8 +482,12 @@
   .pet-meter-track{flex:1;max-width:220px;height:5px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;}
   .pet-meter-fill{height:100%;border-radius:3px;transition:width .6s ease, background .6s ease;}
   .pet-meter-val{font-family:var(--mono);font-size:10px;color:var(--ink-faint);white-space:nowrap;}
+  .pet-ring-note{font-family:var(--mono);font-size:10px;color:#FBBF24;margin-top:6px;}
   .pet-hint{position:relative;font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-left:auto;align-self:flex-start;opacity:0;transition:opacity .18s ease;}
   .pet-panel:hover .pet-hint{opacity:1;}
+  .pet-confetti-layer{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:2;}
+  .pet-confetti-piece{position:absolute;left:22%;top:50%;transform:translate(-50%,-50%);opacity:1;transition:transform .9s cubic-bezier(.2,.8,.2,1), opacity .9s ease-out;}
+  @media (prefers-reduced-motion:reduce){.pet-confetti-piece{transition:none;opacity:0;}}
 
   /* ---------- debt countdown + savings gauge row ---------- */
   .fin-health-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:26px;}
@@ -1668,6 +1673,17 @@ function renderMilestones(currentTotal, monthlyDCA) {
   const nextIdx = NET_WORTH_MILESTONES.findIndex((m) => m > total);
   const reachedCount = nextIdx >= 0 ? nextIdx : NET_WORTH_MILESTONES.length;
 
+  // Track which milestones have already been celebrated so the confetti/orb
+  // upgrade only fires once per milestone, persisted across page loads.
+  const reachedValues = NET_WORTH_MILESTONES.slice(0, reachedCount);
+  let seen = [];
+  try { seen = JSON.parse(localStorage.getItem('seenMilestones') || '[]'); } catch (e) { seen = []; }
+  const newlyReached = reachedValues.filter((m) => !seen.includes(m));
+  window.__newlyReachedMilestones = newlyReached;
+  if (newlyReached.length) {
+    try { localStorage.setItem('seenMilestones', JSON.stringify(reachedValues)); } catch (e) {}
+  }
+
   window.__milestoneDetails = { total, monthlyDCA, milestones: NET_WORTH_MILESTONES, reachedCount };
 
   if (nextIdx === -1) {
@@ -1823,9 +1839,27 @@ const ORB_CONFIG = {
   },
 };
 
-function buildPetSVG(mood, score) {
+// permanent "achievement ring" — one small gold dot per net-worth milestone
+// reached, orbiting further out than the mood particles. Unlike the mood
+// particles (which reflect the current score and can shrink back down),
+// these only ever accumulate, so the orb visibly levels up over time.
+function buildMilestoneRingHTML(reachedCount) {
+  if (!reachedCount) return '';
+  const radius = 44;
+  let out = '';
+  for (let i = 0; i < reachedCount; i++) {
+    const angle = (i / Math.max(reachedCount, 1)) * Math.PI * 2;
+    const cx = +(radius * Math.cos(angle)).toFixed(1);
+    const cy = +(radius * Math.sin(angle)).toFixed(1);
+    out += `<g class="pet-o-ms" style="transform-origin:${-cx}px ${-cy}px;animation-duration:${(9 + i * 0.6).toFixed(1)}s;animation-direction:${i % 2 ? 'reverse' : 'normal'};"><circle cx="${cx}" cy="${cy}" r="2.6" fill="#FBBF24"/></g>`;
+  }
+  return out;
+}
+
+function buildPetSVG(mood, score, reachedCount) {
   const cfg = ORB_CONFIG[mood.key] || ORB_CONFIG.content;
   const particlesHTML = cfg.particles.map((p) => `<g class="${p.cls}"><circle cx="${p.cx}" cy="${p.cy}" r="${p.r}" fill="${p.color}"${p.opacity ? ` opacity="${p.opacity}"` : ''}/></g>`).join('');
+  const ringHTML = buildMilestoneRingHTML(reachedCount);
 
   return `
     <svg viewBox="0 0 120 130" xmlns="http://www.w3.org/2000/svg">
@@ -1837,8 +1871,37 @@ function buildPetSVG(mood, score) {
           ${cfg.mouth}
         </g>
         ${particlesHTML}
+        ${ringHTML}
       </g>
     </svg>`;
+}
+
+// one-shot confetti burst over the pet panel, called when a new net-worth
+// milestone has just been crossed
+function fireMilestoneConfetti(panel) {
+  const colors = ['#FBBF24', '#5EEAD4', '#F472B6', '#A78BFA', '#7DD3FC'];
+  const layer = document.createElement('div');
+  layer.className = 'pet-confetti-layer';
+  panel.appendChild(layer);
+  for (let i = 0; i < 26; i++) {
+    const p = document.createElement('div');
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 70;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    const size = 4 + Math.random() * 4;
+    p.className = 'pet-confetti-piece';
+    p.style.width = `${size}px`;
+    p.style.height = `${size}px`;
+    p.style.background = colors[i % colors.length];
+    p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    layer.appendChild(p);
+    requestAnimationFrame(() => {
+      p.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      p.style.opacity = '0';
+    });
+  }
+  setTimeout(() => layer.remove(), 1000);
 }
 
 function renderPortfolioPet() {
@@ -1874,7 +1937,7 @@ function renderPortfolioPet() {
 
   panel.style.setProperty('--pet-glow', mood.glow);
   panel.innerHTML = `
-    <div class="pet-avatar-wrap">${buildPetSVG(mood, score)}</div>
+    <div class="pet-avatar-wrap">${buildPetSVG(mood, score, ms.reachedCount)}</div>
     <div class="pet-info">
       <div class="pet-eyebrow">Wellness Core</div>
       <div class="pet-mood">${mood.label}</div>
@@ -1883,8 +1946,14 @@ function renderPortfolioPet() {
         <div class="pet-meter-track"><div class="pet-meter-fill" style="width:${score.toFixed(0)}%;background:${mood.color}"></div></div>
         <span class="pet-meter-val">${score.toFixed(0)}/100 wellness</span>
       </div>
+      ${ms.reachedCount ? `<div class="pet-ring-note">${ms.reachedCount} milestone${ms.reachedCount === 1 ? '' : 's'} reached</div>` : ''}
     </div>
     <span class="pet-hint">View details →</span>`;
+
+  if (window.__newlyReachedMilestones && window.__newlyReachedMilestones.length) {
+    fireMilestoneConfetti(panel);
+    window.__newlyReachedMilestones = [];
+  }
 }
 
 function openPetModal() {

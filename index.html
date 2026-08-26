@@ -497,6 +497,39 @@
   .risk-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px;}
   @media (max-width:640px){.risk-row{grid-template-columns:1fr;}}
 
+  /* ---------- DCA zone temperature gauge ---------- */
+  .gauge-heading{
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:10px;
+  }
+  .gauge-heading b{color:var(--ink-dim);font-weight:600;}
+  .gauge-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px;}
+  @media (max-width:640px){.gauge-row{grid-template-columns:1fr;}}
+  .gauge-panel{
+    display:flex;flex-direction:column;align-items:center;text-align:center;
+    padding:16px 16px 14px;
+  }
+  .gauge-panel .fp-headrow{width:100%;}
+  .gauge-svg{display:block;margin:2px auto 0;overflow:visible;}
+  .gauge-lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;fill:var(--ink-faint);}
+  .gauge-readout{margin-top:-6px;}
+  .gauge-score{
+    font-family:var(--mono);font-weight:700;font-size:30px;line-height:1.1;
+    color:var(--ink);
+  }
+  .gauge-score.tier-buy{color:var(--gain);}
+  .gauge-score.tier-hold{color:var(--accent2);}
+  .gauge-score.tier-sell{color:var(--loss);}
+  .gauge-zone{
+    font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-top:2px;
+  }
+  .gauge-action{
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:6px;
+    padding-top:8px;border-top:1px solid var(--hair);width:100%;
+  }
+  .gauge-action b{color:var(--ink-dim);}
+  .gauge-stale{font-size:11px;color:var(--ink-faint);margin-top:6px;}
+
   .next-buy-row{margin-bottom:26px;}
   .next-buy-row .fin-panel{padding:16px 18px;}
   .nb-top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;}
@@ -908,6 +941,12 @@
     </div>
 
     <div class="tab-content hidden" id="tab-risk">
+      <div class="gauge-heading">DCA Zone Temperature — <b>live composite score</b>, cold = accumulate, hot = trim</div>
+      <div class="gauge-row">
+        <div class="fin-panel gauge-panel" id="gauge-btc-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+        <div class="fin-panel gauge-panel" id="gauge-xaut-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      </div>
+
       <div class="risk-row">
         <div class="fin-panel" id="risk-btc-panel" tabindex="0" role="button" aria-haspopup="dialog">
           <div class="fp-label">BTC Risk Score</div>
@@ -2058,6 +2097,83 @@ const COMPONENT_LABELS = {
   vol_adj_momentum: 'Momentum',
 };
 
+/* =========================================================================
+   DCA ZONE TEMPERATURE GAUGE — semicircular dial rendering the same
+   composite_score/tier already computed for the risk panels, so it always
+   agrees with them. Cold (green, left) = accumulate; hot (red, right) = trim.
+   ========================================================================= */
+const TIER_DOT_COLOR = { buy: '#34D399', hold: '#22D3EE', sell: '#FB7185' };
+
+function buildGaugeSVG(score, tierClass) {
+  const cx = 120, cy = 116, r = 92;
+  const clamped = Math.max(0, Math.min(1, score == null ? 0.5 : score));
+  const angleDeg = 180 * (1 - clamped);
+  const angleRad = angleDeg * Math.PI / 180;
+  const needleLen = r - 16;
+  const tipX = cx + needleLen * Math.cos(angleRad);
+  const tipY = cy - needleLen * Math.sin(angleRad);
+  const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => {
+    const a = (180 * (1 - t)) * Math.PI / 180;
+    const x1 = cx + (r + 3) * Math.cos(a), y1 = cy - (r + 3) * Math.sin(a);
+    const x2 = cx + (r + 13) * Math.cos(a), y2 = cy - (r + 13) * Math.sin(a);
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>`;
+  }).join('');
+
+  const dot = TIER_DOT_COLOR[tierClass] || '#F1F3FA';
+
+  return `
+    <svg class="gauge-svg" viewBox="0 0 240 138" width="220" height="126" role="img" aria-label="DCA zone temperature gauge">
+      <defs>
+        <linearGradient id="gaugeGrad-${tierClass}-${Math.round(clamped * 1000)}" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#34D399"/>
+          <stop offset="45%" stop-color="#22D3EE"/>
+          <stop offset="100%" stop-color="#FB7185"/>
+        </linearGradient>
+      </defs>
+      <path d="${arcPath}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="18" stroke-linecap="round"/>
+      <path d="${arcPath}" fill="none" stroke="url(#gaugeGrad-${tierClass}-${Math.round(clamped * 1000)})" stroke-width="14" stroke-linecap="round" opacity="0.92"/>
+      ${ticks}
+      <line x1="${cx}" y1="${cy}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="${cx}" cy="${cy}" r="7" fill="var(--ink)" stroke="var(--bg)" stroke-width="2"/>
+      <circle cx="${tipX.toFixed(1)}" cy="${tipY.toFixed(1)}" r="4.5" fill="${dot}"/>
+      <text x="${cx - r}" y="${cy + 22}" class="gauge-lbl" text-anchor="start">COLD</text>
+      <text x="${cx}" y="${cy - r - 6}" class="gauge-lbl" text-anchor="middle">0.50</text>
+      <text x="${cx + r}" y="${cy + 22}" class="gauge-lbl" text-anchor="end">HOT</text>
+    </svg>`;
+}
+
+function renderGaugePanel(key, history) {
+  const src = RISK_SOURCES[key];
+  const panel = document.getElementById(`gauge-${key}-panel`);
+  if (!panel) return;
+
+  if (!history) {
+    panel.innerHTML = `
+      <div class="fp-label">${src.label} Zone Temperature</div>
+      ${buildGaugeSVG(0.5, 'hold')}
+      <div class="gauge-stale">Unavailable — couldn't load live score</div>`;
+    return;
+  }
+
+  const latest = history[history.length - 1];
+  const tierClass = riskTierClass(latest.tier);
+  const score = latest.composite_score;
+
+  panel.innerHTML = `
+    <div class="fp-headrow">
+      <div class="fp-label">${src.label} Zone Temperature</div>
+      <span class="zone-badge tier-${tierClass}">${latest.zone}</span>
+    </div>
+    ${buildGaugeSVG(score, tierClass)}
+    <div class="gauge-readout">
+      <div class="gauge-score tier-${tierClass}">${score.toFixed(2)}</div>
+      <div class="gauge-zone">${latest.tier === 'buy' ? 'Accumulate' : latest.tier === 'sell' ? 'Trim / take profit' : 'Hold — no action'}</div>
+    </div>
+    <div class="gauge-action">${latest.action}${latest.size_usd > 0 ? ` · <b>$${latest.size_usd}</b> this week` : ''}</div>`;
+}
+
 function renderRiskPanel(key, history, holdingUSD) {
   const src = RISK_SOURCES[key];
   const panel = document.getElementById(`risk-${key}-panel`);
@@ -2969,6 +3085,14 @@ document.getElementById('emergency-fund-panel').addEventListener('keydown', (e) 
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEmergencyFundModal(); }
 });
 
+document.getElementById('gauge-btc-panel').addEventListener('click', () => openRiskModal('btc'));
+document.getElementById('gauge-btc-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('btc'); }
+});
+document.getElementById('gauge-xaut-panel').addEventListener('click', () => openRiskModal('xaut'));
+document.getElementById('gauge-xaut-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('xaut'); }
+});
 document.getElementById('risk-btc-panel').addEventListener('click', () => openRiskModal('btc'));
 document.getElementById('risk-btc-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('btc'); }
@@ -3036,6 +3160,8 @@ function render(data) {
   const riskRaw = window.__riskHistoryRaw || {};
   renderRiskPanel('btc', riskRaw.btc, holdingByAsset.BTC || 0);
   renderRiskPanel('xaut', riskRaw.xaut, holdingByAsset.XAUT || 0);
+  renderGaugePanel('btc', riskRaw.btc);
+  renderGaugePanel('xaut', riskRaw.xaut);
 
   // ---- monthly balance trend ----
   renderMonthlyBalancePanel(monthlyBalance, savings.totalNetSavings);

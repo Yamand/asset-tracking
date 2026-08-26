@@ -323,6 +323,17 @@
   .chart-tooltip .tt-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none;}
   .chart-tooltip .tt-pl{margin-top:5px;padding-top:5px;border-top:1px dashed var(--hair);}
 
+  .bt-controls{display:flex;gap:6px;}
+  .bt-range-btn{
+    font-family:var(--mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;
+    padding:3px 9px;border:1px solid var(--hair-bright);background:transparent;color:var(--ink-dim);
+    cursor:pointer;border-radius:20px;transition:all 120ms ease;
+  }
+  .bt-range-btn:hover{color:var(--ink);border-color:var(--accent2);}
+  .bt-range-btn.active{color:var(--ink);border-color:var(--accent2);background:var(--accent-soft);}
+  .bt-legend{margin-top:10px;flex-wrap:wrap;row-gap:6px;}
+  .bt-legend .swatch.dot{width:8px;height:8px;border-radius:50%;margin-right:5px;}
+
   /* ---------- log table ---------- */
   .log-controls{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
   .log-controls input, .log-controls select{
@@ -864,6 +875,29 @@
 
       <div class="monthly-balance-row">
         <div class="fin-panel" id="monthly-balance-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      </div>
+
+      <div class="sheet" id="sheet-buy-timing">
+        <div class="sheet-head">
+          <span class="tag">03b</span>
+          <h2>Buy Timing — Price Range Percentile</h2>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">
+            <span>Where each buy landed in the trailing price range</span>
+            <span class="bt-controls">
+              <button class="bt-range-btn" data-range="30">30d</button>
+              <button class="bt-range-btn active" data-range="90">90d</button>
+            </span>
+          </div>
+          <canvas id="chart-buy-timing"></canvas>
+          <div class="legend bt-legend">
+            <span><span class="swatch dot" style="background:#34D399;"></span>Buy zone (&lt;0.40)</span>
+            <span><span class="swatch dot" style="background:#8B5CF6;"></span>Hold zone (0.40–0.60)</span>
+            <span><span class="swatch dot" style="background:#FB7185;"></span>Sell zone (&ge;0.60)</span>
+            <span>● BTC&nbsp;&nbsp;◆ XAUT</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2441,6 +2475,235 @@ function renderCharts(chart) {
 }
 
 /* =========================================================================
+   BUY TIMING — for each Buy trade, where the fill price sat within the
+   trailing 30d/90d range of that asset's daily closes (0% = the low of the
+   window i.e. dip-bought, 100% = the high i.e. bought at the top). Reuses
+   the same price history already fetched for the risk panels
+   (window.__riskHistoryRaw), so no extra network calls.
+   ========================================================================= */
+let __buyTimingPoints = [];
+let __buyTimingRange = '90';
+
+function riskScoreColor(v) {
+  if (v == null) return '#9BA3BE';
+  if (v < 0.40) return '#34D399';
+  if (v < 0.60) return '#8B5CF6';
+  return '#FB7185';
+}
+
+function dateKeyOf(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function computeBuyTimingPoints(trades, riskRaw) {
+  const histByAsset = { BTC: riskRaw && riskRaw.btc, XAUT: riskRaw && riskRaw.xaut };
+  const points = [];
+  (trades || []).forEach((t) => {
+    if (!t.date || !t.type || !/buy/i.test(t.type) || t.price == null) return;
+    const hist = histByAsset[t.asset];
+    if (!hist || !hist.length) return;
+
+    // binary search for the last history entry on or before this trade's date
+    const key = dateKeyOf(t.date);
+    let lo = 0, hi = hist.length - 1, idx = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (hist[mid].date <= key) { idx = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    if (idx < 0) return; // trade predates all available price history
+
+    function percentileFor(days) {
+      const win = hist.slice(Math.max(0, idx - (days - 1)), idx + 1);
+      const closes = win.map((h) => h.close).filter((v) => v != null);
+      if (!closes.length) return null;
+      const lo2 = Math.min(...closes), hi2 = Math.max(...closes);
+      if (hi2 === lo2) return 50;
+      return Math.min(100, Math.max(0, ((t.price - lo2) / (hi2 - lo2)) * 100));
+    }
+
+    const pct30 = percentileFor(30);
+    const pct90 = percentileFor(90);
+    if (pct30 == null && pct90 == null) return;
+    // prefer the risk score actually recorded in the Trade Log at buy time;
+    // fall back to that day's composite score from the history feed.
+    const risk = t.risk != null ? t.risk : (hist[idx].composite_score != null ? hist[idx].composite_score : null);
+    points.push({ date: t.date, asset: t.asset, price: t.price, pct30, pct90, risk, amount: t.amount, week: t.week, notes: t.notes });
+  });
+  points.sort((a, b) => a.date - b.date);
+  return points;
+}
+
+function drawBuyTimingScatter(canvas, points, rangeKey, hoverIndex) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const cssW = Math.round(rect.width), cssH = Math.round(rect.height);
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = cssW, H = cssH;
+  ctx.clearRect(0, 0, W, H);
+
+  const valid = points.filter((p) => p[`pct${rangeKey}`] != null);
+  canvas.__btMeta = null;
+  if (!valid.length) {
+    ctx.fillStyle = 'rgba(143,173,201,0.6)';
+    ctx.font = '11px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No buy-timing data yet', W / 2, H / 2);
+    return;
+  }
+
+  const padL = 44, padR = 12, padT = 10, padB = 22;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const times = valid.map((p) => p.date.getTime());
+  let xMin = Math.min(...times), xMax = Math.max(...times);
+  const xPad = Math.max((xMax - xMin) * 0.04, 86400000 * 2);
+  xMin -= xPad; xMax += xPad;
+  const xScale = (t) => padL + ((t - xMin) / (xMax - xMin || 1)) * plotW;
+  const yScale = (v) => padT + plotH - (v / 100) * plotH;
+
+  // band shading — dip-buy zone at the bottom, chasing-highs zone at the top
+  const bands = [
+    { from: 0, to: 33, color: 'rgba(52,211,153,0.05)' },
+    { from: 33, to: 66, color: 'rgba(139,92,246,0.04)' },
+    { from: 66, to: 100, color: 'rgba(251,113,133,0.05)' },
+  ];
+  bands.forEach((b) => {
+    ctx.fillStyle = b.color;
+    ctx.fillRect(padL, yScale(b.to), plotW, yScale(b.from) - yScale(b.to));
+  });
+
+  // gridlines + y labels
+  ctx.strokeStyle = 'rgba(155,163,190,0.09)';
+  ctx.lineWidth = 1;
+  ctx.font = '10px "IBM Plex Mono", monospace';
+  [0, 25, 50, 75, 100].forEach((v) => {
+    const y = Math.round(yScale(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(143,173,201,0.8)';
+    ctx.textAlign = 'right';
+    ctx.fillText(v + '%', padL - 8, Math.round(yScale(v)) + 3);
+  });
+
+  // x labels — first / middle / last buy in view
+  const sorted = valid.slice().sort((a, b) => a.date - b.date);
+  const tickIdxs = [...new Set([0, Math.floor((sorted.length - 1) / 2), sorted.length - 1])];
+  ctx.fillStyle = 'rgba(143,173,201,0.8)';
+  ctx.textAlign = 'center';
+  tickIdxs.forEach((i) => {
+    if (!sorted[i]) return;
+    ctx.fillText(fmtDate(sorted[i].date), xScale(sorted[i].date.getTime()), H - 6);
+  });
+
+  // points — circle = BTC, diamond = XAUT; color = risk tier at time of buy
+  const plotted = [];
+  valid.forEach((p) => {
+    const x = xScale(p.date.getTime());
+    const y = yScale(p[`pct${rangeKey}`]);
+    ctx.beginPath();
+    if (p.asset === 'XAUT') {
+      const r = 5;
+      ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
+    } else {
+      ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+    }
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = riskScoreColor(p.risk);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(10,11,20,0.55)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    plotted.push({ x, y, point: p });
+  });
+
+  if (hoverIndex != null && plotted[hoverIndex]) {
+    const hp = plotted[hoverIndex];
+    ctx.beginPath();
+    ctx.arc(hp.x, hp.y, 8, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(241,243,250,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  canvas.__btMeta = { plotted };
+}
+
+function redrawBuyTiming(hoverIndex) {
+  const canvas = document.getElementById('chart-buy-timing');
+  if (!canvas) return;
+  drawBuyTimingScatter(canvas, __buyTimingPoints, __buyTimingRange, hoverIndex);
+}
+
+function makeBuyTimingHoverable(canvas) {
+  const tooltip = document.getElementById('chart-tooltip');
+
+  function nearest(clientX, clientY) {
+    const meta = canvas.__btMeta;
+    if (!meta || !meta.plotted.length) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = clientX - rect.left, my = clientY - rect.top;
+    let best = 0, bestDist = Infinity;
+    meta.plotted.forEach((pp, i) => {
+      const d = Math.hypot(pp.x - mx, pp.y - my);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    return bestDist < 26 ? best : null;
+  }
+  function onMove(clientX, clientY) {
+    const idx = nearest(clientX, clientY);
+    if (idx == null) { tooltip.classList.add('hidden'); redrawBuyTiming(null); return; }
+    redrawBuyTiming(idx);
+    const p = canvas.__btMeta.plotted[idx].point;
+    const pct = p[`pct${__buyTimingRange}`];
+    tooltip.innerHTML = `<div class="tt-date">${fmtDateFull(p.date)} · ${p.asset}</div>
+      <div class="tt-row"><span class="tt-dot" style="background:${riskScoreColor(p.risk)}"></span>${pct.toFixed(0)}th pct of ${__buyTimingRange}d range</div>
+      <div class="tt-row">Buy price ${fmtUSD(p.price)}</div>
+      ${p.risk != null ? `<div class="tt-row">Risk score ${p.risk.toFixed(2)}</div>` : ''}
+      ${p.amount ? `<div class="tt-pl" style="color:rgba(139,92,246,0.7)">Bought ${fmtUSD(p.amount)}</div>` : ''}`;
+    tooltip.style.left = clientX + 16 + 'px';
+    tooltip.style.top = clientY - 12 + 'px';
+    tooltip.classList.remove('hidden');
+  }
+  function onLeave() { tooltip.classList.add('hidden'); redrawBuyTiming(null); }
+
+  if (canvas.__btHoverMove) canvas.removeEventListener('mousemove', canvas.__btHoverMove);
+  if (canvas.__btHoverLeave) canvas.removeEventListener('mouseleave', canvas.__btHoverLeave);
+  if (canvas.__btHoverTouchMove) canvas.removeEventListener('touchmove', canvas.__btHoverTouchMove);
+  if (canvas.__btHoverTouchEnd) canvas.removeEventListener('touchend', canvas.__btHoverTouchEnd);
+
+  canvas.__btHoverMove = (e) => onMove(e.clientX, e.clientY);
+  canvas.__btHoverLeave = onLeave;
+  canvas.__btHoverTouchMove = (e) => { if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY); };
+  canvas.__btHoverTouchEnd = onLeave;
+
+  canvas.addEventListener('mousemove', canvas.__btHoverMove);
+  canvas.addEventListener('mouseleave', canvas.__btHoverLeave);
+  canvas.addEventListener('touchmove', canvas.__btHoverTouchMove, { passive: true });
+  canvas.addEventListener('touchend', canvas.__btHoverTouchEnd);
+}
+
+function renderBuyTiming(trades, riskRaw) {
+  __buyTimingPoints = computeBuyTimingPoints(trades, riskRaw || {});
+  const canvas = document.getElementById('chart-buy-timing');
+  if (!canvas) return;
+  redrawBuyTiming(null);
+  makeBuyTimingHoverable(canvas);
+  document.querySelectorAll('.bt-range-btn').forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll('.bt-range-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      __buyTimingRange = btn.dataset.range;
+      redrawBuyTiming(null);
+    };
+  });
+}
+
+/* =========================================================================
    SPARKLINE (risk score trend per card)
    ========================================================================= */
 function drawSparkline(canvas, riskHistory) {
@@ -3117,6 +3380,7 @@ function render(data) {
   window.__lastChart = chart;
   window.__lastRenderData = data;
   renderCharts(chart);
+  renderBuyTiming(trades, riskRaw);
 
   // ---- log ----
   let currentSort = { key: 'date', dir: -1 };
@@ -3239,6 +3503,7 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => {
     if (document.getElementById('content').classList.contains('hidden')) return;
     if (window.__lastChart) renderCharts(window.__lastChart);
+    redrawBuyTiming(null);
     redrawHoldingSparklines();
     redrawMonthlyBalancePanelChart();
     // Only one of these will find its canvas in the DOM, since only one

@@ -137,7 +137,7 @@
     position:relative;
     font-family:var(--mono);
     font-weight:700;
-    font-size:clamp(48px,10vw,92px);
+    font-size:clamp(36px,7vw,68px);
     letter-spacing:-.02em;
     line-height:1;
     background:linear-gradient(180deg,var(--ink) 45%,var(--ink-dim));
@@ -844,6 +844,12 @@
         <div class="fin-panel" id="milestone-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
         <div class="fin-panel" id="coastfi-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
         <div class="fin-panel" id="emergency-fund-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
+      </div>
+
+      <div class="gauge-heading">DCA Zone Temperature — <b>live composite score</b>, cold = accumulate, hot = trim</div>
+      <div class="gauge-row">
+        <div class="fin-panel gauge-panel" id="gauge-btc-panel-overview" tabindex="0" role="button" aria-haspopup="dialog"></div>
+        <div class="fin-panel gauge-panel" id="gauge-xaut-panel-overview" tabindex="0" role="button" aria-haspopup="dialog"></div>
       </div>
     </div>
 
@@ -2144,16 +2150,25 @@ function buildGaugeSVG(score, tierClass) {
     </svg>`;
 }
 
+// Gauges appear in two places (Risk Scores tab + bottom of Overview), so
+// each asset has two panel ids sharing the same render logic.
+const GAUGE_PANEL_IDS = {
+  btc: ['gauge-btc-panel', 'gauge-btc-panel-overview'],
+  xaut: ['gauge-xaut-panel', 'gauge-xaut-panel-overview'],
+};
+
 function renderGaugePanel(key, history) {
   const src = RISK_SOURCES[key];
-  const panel = document.getElementById(`gauge-${key}-panel`);
-  if (!panel) return;
+  const ids = GAUGE_PANEL_IDS[key] || [];
+  const panels = ids.map((id) => document.getElementById(id)).filter(Boolean);
+  if (!panels.length) return;
 
   if (!history) {
-    panel.innerHTML = `
+    const html = `
       <div class="fp-label">${src.label} Zone Temperature</div>
       ${buildGaugeSVG(0.5, 'hold')}
       <div class="gauge-stale">Unavailable — couldn't load live score</div>`;
+    panels.forEach((panel) => { panel.innerHTML = html; });
     return;
   }
 
@@ -2161,7 +2176,7 @@ function renderGaugePanel(key, history) {
   const tierClass = riskTierClass(latest.tier);
   const score = latest.composite_score;
 
-  panel.innerHTML = `
+  const html = `
     <div class="fp-headrow">
       <div class="fp-label">${src.label} Zone Temperature</div>
       <span class="zone-badge tier-${tierClass}">${latest.zone}</span>
@@ -2172,6 +2187,7 @@ function renderGaugePanel(key, history) {
       <div class="gauge-zone">${latest.tier === 'buy' ? 'Accumulate' : latest.tier === 'sell' ? 'Trim / take profit' : 'Hold — no action'}</div>
     </div>
     <div class="gauge-action">${latest.action}${latest.size_usd > 0 ? ` · <b>$${latest.size_usd}</b> this week` : ''}</div>`;
+  panels.forEach((panel) => { panel.innerHTML = html; });
 }
 
 function renderRiskPanel(key, history, holdingUSD) {
@@ -3091,6 +3107,14 @@ document.getElementById('gauge-btc-panel').addEventListener('keydown', (e) => {
 });
 document.getElementById('gauge-xaut-panel').addEventListener('click', () => openRiskModal('xaut'));
 document.getElementById('gauge-xaut-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('xaut'); }
+});
+document.getElementById('gauge-btc-panel-overview').addEventListener('click', () => openRiskModal('btc'));
+document.getElementById('gauge-btc-panel-overview').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('btc'); }
+});
+document.getElementById('gauge-xaut-panel-overview').addEventListener('click', () => openRiskModal('xaut'));
+document.getElementById('gauge-xaut-panel-overview').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRiskModal('xaut'); }
 });
 document.getElementById('risk-btc-panel').addEventListener('click', () => openRiskModal('btc'));

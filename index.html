@@ -2105,7 +2105,7 @@ const COMPONENT_LABELS = {
    ========================================================================= */
 const TIER_DOT_COLOR = { buy: '#34D399', hold: '#22D3EE', sell: '#FB7185' };
 
-function buildGaugeSVG(score, tierClass) {
+function buildGaugeSVG(score, tierClass, idSuffix) {
   const cx = 120, cy = 116, r = 92;
   const clamped = Math.max(0, Math.min(1, score == null ? 0.5 : score));
   const angleDeg = 180 * (1 - clamped);
@@ -2123,18 +2123,24 @@ function buildGaugeSVG(score, tierClass) {
   }).join('');
 
   const dot = TIER_DOT_COLOR[tierClass] || '#F1F3FA';
+  // Gradient id must be unique per rendered <svg>, not just per tier/score:
+  // the same gauge markup is injected into two DOM panels (Overview +
+  // Risk Scores tab), and a shared id there gives two <linearGradient>
+  // elements the same id, which browsers can fail to resolve correctly —
+  // leaving one copy's arc uncolored.
+  const gradId = `gaugeGrad-${idSuffix}`;
 
   return `
     <svg class="gauge-svg" viewBox="0 0 240 138" width="220" height="126" role="img" aria-label="DCA zone temperature gauge">
       <defs>
-        <linearGradient id="gaugeGrad-${tierClass}-${Math.round(clamped * 1000)}" x1="0" y1="0" x2="1" y2="0">
+        <linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stop-color="#34D399"/>
           <stop offset="45%" stop-color="#22D3EE"/>
           <stop offset="100%" stop-color="#FB7185"/>
         </linearGradient>
       </defs>
       <path d="${arcPath}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="18" stroke-linecap="round"/>
-      <path d="${arcPath}" fill="none" stroke="url(#gaugeGrad-${tierClass}-${Math.round(clamped * 1000)})" stroke-width="14" stroke-linecap="round" opacity="0.92"/>
+      <path d="${arcPath}" fill="none" stroke="url(#${gradId})" stroke-width="14" stroke-linecap="round" opacity="0.92"/>
       ${ticks}
       <line x1="${cx}" y1="${cy}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
       <circle cx="${cx}" cy="${cy}" r="7" fill="var(--ink)" stroke="var(--bg)" stroke-width="2"/>
@@ -2159,11 +2165,12 @@ function renderGaugePanel(key, history) {
   if (!panels.length) return;
 
   if (!history) {
-    const html = `
-      <div class="fp-label">${src.label} Zone Temperature</div>
-      ${buildGaugeSVG(0.5, 'hold')}
-      <div class="gauge-stale">Unavailable — couldn't load live score</div>`;
-    panels.forEach((panel) => { panel.innerHTML = html; });
+    panels.forEach((panel) => {
+      panel.innerHTML = `
+        <div class="fp-label">${src.label} Zone Temperature</div>
+        ${buildGaugeSVG(0.5, 'hold', panel.id)}
+        <div class="gauge-stale">Unavailable — couldn't load live score</div>`;
+    });
     return;
   }
 
@@ -2171,18 +2178,19 @@ function renderGaugePanel(key, history) {
   const tierClass = riskTierClass(latest.tier);
   const score = latest.composite_score;
 
-  const html = `
-    <div class="fp-headrow">
-      <div class="fp-label">${src.label} Zone Temperature</div>
-      <span class="zone-badge tier-${tierClass}">${latest.zone}</span>
-    </div>
-    ${buildGaugeSVG(score, tierClass)}
-    <div class="gauge-readout">
-      <div class="gauge-score tier-${tierClass}">${score.toFixed(2)}</div>
-      <div class="gauge-zone">${latest.tier === 'buy' ? 'Accumulate' : latest.tier === 'sell' ? 'Trim / take profit' : 'Hold — no action'}</div>
-    </div>
-    <div class="gauge-action">${latest.action}${latest.size_usd > 0 ? ` · <b>$${latest.size_usd}</b> this week` : ''}</div>`;
-  panels.forEach((panel) => { panel.innerHTML = html; });
+  panels.forEach((panel) => {
+    panel.innerHTML = `
+      <div class="fp-headrow">
+        <div class="fp-label">${src.label} Zone Temperature</div>
+        <span class="zone-badge tier-${tierClass}">${latest.zone}</span>
+      </div>
+      ${buildGaugeSVG(score, tierClass, panel.id)}
+      <div class="gauge-readout">
+        <div class="gauge-score tier-${tierClass}">${score.toFixed(2)}</div>
+        <div class="gauge-zone">${latest.tier === 'buy' ? 'Accumulate' : latest.tier === 'sell' ? 'Trim / take profit' : 'Hold — no action'}</div>
+      </div>
+      <div class="gauge-action">${latest.action}${latest.size_usd > 0 ? ` · <b>$${latest.size_usd}</b> this week` : ''}</div>`;
+  });
 }
 
 function renderRiskPanel(key, history, holdingUSD) {

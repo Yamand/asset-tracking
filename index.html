@@ -388,6 +388,60 @@
     border-top:1px solid #bbb;padding-top:5pt;margin-top:10pt;}
   .ps-pl-pos{color:#1a7a4a;}.ps-pl-neg{color:#c0392b;}
 
+  /* compact print layout — denser cards, fewer meta rows, fewer log columns */
+  #print-snapshot.compact .ps-positions{grid-template-columns:1fr 1fr 1fr;gap:6pt;}
+  #print-snapshot.compact .ps-card{padding:5pt 7pt;}
+  #print-snapshot.compact .pc-mv{font-size:13pt;}
+  #print-snapshot.compact .pc-meta{grid-template-columns:auto 1fr;font-size:7pt;}
+  #print-snapshot.compact .ps-table{font-size:7.5pt;}
+  #print-snapshot.compact .ps-table th,#print-snapshot.compact .ps-table td{padding:1.5pt 4pt;}
+  #print-snapshot.compact .ps-sh{margin-bottom:4pt;}
+  #print-snapshot.compact .ps-section{margin-bottom:8pt;}
+
+  .ps-risk-cards{display:grid;grid-template-columns:1fr 1fr;gap:10pt;}
+  .ps-risk-card{border:1px solid #bbb;padding:7pt 9pt;}
+  .prc-name{font-size:11pt;font-weight:700;margin-bottom:2pt;}
+  .prc-score{font-size:15pt;font-weight:700;line-height:1.1;}
+  .prc-zone{font-size:8.5pt;color:#555;margin-bottom:5pt;}
+  .prc-meta{font-size:8pt;color:#444;display:grid;grid-template-columns:auto 1fr;gap:1pt 8pt;}
+  .prc-meta .k{color:#888;}
+  .prc-tier-buy{color:#1a7a4a;}.prc-tier-sell{color:#c0392b;}.prc-tier-hold{color:#0e7490;}
+
+  /* ===== PRINT OPTIONS MODAL ===== */
+  .po-panel{max-width:480px;}
+  .po-title{font-family:var(--sans);font-weight:700;font-size:19px;color:var(--ink);margin-bottom:2px;padding-right:36px;}
+  .po-sub{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-bottom:18px;}
+  .po-group{margin-bottom:16px;}
+  .po-group-label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+  .po-checks{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;}
+  .po-check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-dim);cursor:pointer;}
+  .po-check input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;}
+  .po-check:hover{color:var(--ink);}
+  .po-radios{display:flex;gap:14px;flex-wrap:wrap;}
+  .po-radio{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-dim);cursor:pointer;}
+  .po-radio input{accent-color:var(--accent);cursor:pointer;}
+  .po-radio:hover{color:var(--ink);}
+  .po-select{
+    font-family:var(--mono);font-size:12.5px;background:var(--bg-panel-2);color:var(--ink);
+    border:1px solid var(--hair-bright);border-radius:8px;padding:7px 10px;width:100%;cursor:pointer;
+  }
+  .po-daterange{display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .po-daterange.show{display:grid;}
+  .po-daterange input{
+    font-family:var(--mono);font-size:12px;background:var(--bg-panel-2);color:var(--ink);
+    border:1px solid var(--hair-bright);border-radius:8px;padding:6px 8px;
+  }
+  .po-error{font-size:11.5px;color:var(--loss);margin-top:6px;min-height:14px;}
+  .po-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+  .po-btn{
+    font-family:var(--mono);font-size:12.5px;padding:9px 18px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--hair-bright);background:transparent;color:var(--ink-dim);
+  }
+  .po-btn:hover{color:var(--ink);border-color:var(--accent);}
+  .po-btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0A0B14;font-weight:700;border:none;}
+  .po-btn.primary:hover{filter:brightness(1.08);}
+  .po-btn.primary:disabled{opacity:.45;cursor:not-allowed;filter:none;}
+
   .state-banner{
     font-family:var(--mono);font-size:12px;padding:12px 14px;border:1px solid var(--hair-bright);
     background:var(--bg-panel);color:var(--ink-dim);margin-bottom:18px;
@@ -979,6 +1033,13 @@
 </div>
 
 <div id="print-snapshot"></div>
+
+<div class="modal-overlay hidden" id="print-options-modal" role="dialog" aria-modal="true" aria-labelledby="po-title">
+  <div class="modal-panel po-panel">
+    <button class="modal-close" id="print-options-close" aria-label="Close">&times;</button>
+    <div id="print-options-body"></div>
+  </div>
+</div>
 
 <div class="modal-overlay hidden" id="asset-modal" role="dialog" aria-modal="true">
   <div class="modal-panel">
@@ -3473,59 +3534,118 @@ window.addEventListener('resize', () => {
 /* =========================================================================
    PRINT SNAPSHOT
    ========================================================================= */
-function buildPrintSnapshot(data) {
-  const { savings, summary, trades } = data;
+const DEFAULT_PRINT_OPTIONS = {
+  sections: { cash: true, holdings: true, chart: true, log: true, monthlyBalance: true, risk: true },
+  dateRange: 'all',
+  customFrom: null,
+  customTo: null,
+  layout: 'detailed',
+};
+
+// Trade log range filter only — the equity chart always captures full
+// history (it's a canvas snapshot of the live dashboard chart, not
+// something we can cheaply redraw for an arbitrary window here).
+function filterTradesByRange(trades, options) {
+  if (!options || options.dateRange === 'all') return trades;
+  const now = new Date();
+  let from = null;
+  let to = now;
+  if (options.dateRange === 'ytd') from = new Date(now.getFullYear(), 0, 1);
+  else if (options.dateRange === '6m') from = new Date(now.getTime() - 182 * 86400000);
+  else if (options.dateRange === '3m') from = new Date(now.getTime() - 91 * 86400000);
+  else if (options.dateRange === 'custom') {
+    from = options.customFrom ? new Date(options.customFrom + 'T00:00:00') : null;
+    to = options.customTo ? new Date(options.customTo + 'T23:59:59') : now;
+  }
+  return trades.filter((t) => t.date && (!from || t.date >= from) && t.date <= to);
+}
+
+function buildPrintSnapshot(data, options) {
+  options = options || DEFAULT_PRINT_OPTIONS;
+  const { savings, summary, trades: allTrades, monthlyBalance } = data;
   const snap = document.getElementById('print-snapshot');
   if (!snap) return;
 
+  snap.classList.toggle('compact', options.layout === 'compact');
+
+  const trades = filterTradesByRange(allTrades, options);
+  const compact = options.layout === 'compact';
+
   // capture equity curve canvas as image before rebuilding DOM
   const chartCanvas = document.getElementById('chart-total');
-  const chartImg = chartCanvas ? chartCanvas.toDataURL('image/png') : null;
+  const chartImg = options.sections.chart && chartCanvas ? chartCanvas.toDataURL('image/png') : null;
 
   const now = new Date();
   const dateStr = now.toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
   const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const daysLeft = Math.max(0, Math.ceil((DEBT_FREE_DATE - now) / 86400000));
 
+  // "last buy" reference always looks at full trade history, regardless
+  // of the trade-log date filter chosen for this print run.
   const latestByAsset = {};
-  trades.forEach((t) => { latestByAsset[t.asset] = t; });
+  allTrades.forEach((t) => { latestByAsset[t.asset] = t; });
 
-  // accounts rows
-  const acctRows = savings.accounts.map((a) => `
-    <tr>
-      <td>${a.account}</td>
-      <td>${a.currency}</td>
-      <td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td>
-      <td>${fmtUSD(a.balanceUSD)}</td>
-    </tr>`).join('');
+  const cashSection = !options.sections.cash ? '' : `
+    <div class="ps-section">
+      <div class="ps-sh">Cash &amp; Bank</div>
+      <table class="ps-table">
+        <thead><tr><th>Account</th><th>Currency</th><th>Native</th><th>USD</th></tr></thead>
+        <tbody>${savings.accounts.map((a) => `
+          <tr>
+            <td>${a.account}</td>
+            <td>${a.currency}</td>
+            <td>${a.currency === 'KHR' ? '៛' : '$'}${fmtNum(a.balanceNative, a.currency === 'KHR' ? 0 : 2)}</td>
+            <td>${fmtUSD(a.balanceUSD)}</td>
+          </tr>`).join('')}</tbody>
+        <tfoot><tr class="ps-total"><td colspan="3">Subtotal</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr></tfoot>
+      </table>
+    </div>`;
 
-  // position cards
-  const posCards = summary.assets.map((a) => {
-    const latest = latestByAsset[a.asset];
-    const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
-    const days = latest && latest.date ? Math.floor((now - latest.date) / 86400000) : null;
-    return `
-      <div class="ps-card">
-        <div class="pc-name">${a.asset}</div>
-        <div class="pc-mv">${fmtUSD(a.marketValue)}</div>
-        <div class="pc-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
-        <div class="pc-meta">
-          <span class="k">Invested</span><span>${fmtUSD(a.invested)}</span>
-          <span class="k">Units</span><span>${a.units != null ? a.units.toFixed(8) : '—'}</span>
-          <span class="k">Avg cost</span><span>${fmtUSD(a.avgCost)}</span>
-          <span class="k">Market</span><span>${fmtUSD(a.currentPrice)}</span>
-          <span class="k">Risk</span><span>${latest && latest.risk != null ? latest.risk.toFixed(2) : '—'}</span>
-          <span class="k">Last buy</span><span>${days != null ? days + 'd ago' : '—'}</span>
-        </div>
-      </div>`;
-  }).join('');
+  const holdingsSection = !options.sections.holdings ? '' : `
+    <div class="ps-section">
+      <div class="ps-sh">Holdings — DCA Positions</div>
+      <div class="ps-positions">${summary.assets.map((a) => {
+        const latest = latestByAsset[a.asset];
+        const plClass = (a.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg';
+        const days = latest && latest.date ? Math.floor((now - latest.date) / 86400000) : null;
+        return `
+          <div class="ps-card">
+            <div class="pc-name">${a.asset}</div>
+            <div class="pc-mv">${fmtUSD(a.marketValue)}</div>
+            <div class="pc-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
+            <div class="pc-meta">
+              <span class="k">Invested</span><span>${fmtUSD(a.invested)}</span>
+              <span class="k">Units</span><span>${a.units != null ? a.units.toFixed(8) : '—'}</span>
+              <span class="k">Avg cost</span><span>${fmtUSD(a.avgCost)}</span>
+              <span class="k">Market</span><span>${fmtUSD(a.currentPrice)}</span>
+              ${compact ? '' : `<span class="k">Risk</span><span>${latest && latest.risk != null ? latest.risk.toFixed(2) : '—'}</span>`}
+              <span class="k">Last buy</span><span>${days != null ? days + 'd ago' : '—'}</span>
+            </div>
+          </div>`;
+      }).join('')}</div>
+      ${summary.dcaPace ? `<div style="font-size:8pt;color:#666">
+        Weeks active: ${summary.dcaPace.weeksActive}
+        &nbsp;·&nbsp; Avg/week: ${fmtUSD(summary.dcaPace.avgPerWeek)}
+        &nbsp;·&nbsp; Total invested: ${fmtUSD(summary.total ? summary.total.invested : null)}
+        &nbsp;·&nbsp; Portfolio value: ${fmtUSD(summary.total ? summary.total.marketValue : null)}
+      </div>` : ''}
+    </div>`;
 
-  // trade log — newest first
-  const logRows = trades.slice()
+  const chartSection = !chartImg ? '' : `
+    <div class="ps-section">
+      <div class="ps-sh">Performance — Equity Curve (Full History)</div>
+      <div class="ps-chart"><img src="${chartImg}" /></div>
+    </div>`;
+
+  const logRowsHtml = trades.slice()
     .sort((a, b) => (b.date && a.date ? b.date - a.date : 0))
     .map((t) => {
       const cls = (t.unrealizedPL ?? 0) >= 0 ? 'ps-pl-pos' : 'ps-pl-neg';
-      return `<tr>
+      return compact ? `<tr>
+        <td>${t.week}</td><td>${fmtDateFull(t.date)}</td><td>${t.asset}</td>
+        <td>${fmtUSD(t.amount)}</td><td>${fmtUSD(t.marketValue)}</td>
+        <td class="${cls}">${fmtUSD(t.unrealizedPL)}</td>
+      </tr>` : `<tr>
         <td>${t.week}</td><td>${fmtDateFull(t.date)}</td><td>${t.asset}</td>
         <td>${fmtUSD(t.price)}</td><td>${fmtUSD(t.amount)}</td>
         <td>${fmtUSD(t.avgCost)}</td><td>${fmtUSD(t.marketValue)}</td>
@@ -3533,6 +3653,65 @@ function buildPrintSnapshot(data) {
         <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
       </tr>`;
     }).join('');
+
+  const logHeadHtml = compact
+    ? `<tr><th>Wk</th><th>Date</th><th>Asset</th><th>Amount</th><th>Mkt Value</th><th>Unreal. P&amp;L</th></tr>`
+    : `<tr><th>Wk</th><th>Date</th><th>Asset</th><th>Price</th><th>Amount</th><th>Avg Cost</th><th>Mkt Value</th><th>Unreal. P&amp;L</th><th>Risk</th></tr>`;
+
+  const rangeLabel = { all: 'All Time', ytd: 'This Year', '6m': 'Last 6 Months', '3m': 'Last 3 Months', custom: 'Custom Range' }[options.dateRange] || 'All Time';
+  const colspan = compact ? 6 : 9;
+
+  const logSection = !options.sections.log ? '' : `
+    <div class="ps-section">
+      <div class="ps-sh">Trade Log — ${trades.length} Trades (${rangeLabel})</div>
+      <table class="ps-table">
+        <thead>${logHeadHtml}</thead>
+        <tbody>${logRowsHtml || `<tr><td colspan="${colspan}" style="text-align:center;color:#999;">No trades in this range</td></tr>`}</tbody>
+      </table>
+    </div>`;
+
+  const monthlyRows = (monthlyBalance || []).map((m) => {
+    const cls = (m.momChange ?? 0) >= 0 ? 'ps-pl-pos' : 'ps-pl-neg';
+    return `<tr>
+      <td>${m.month}</td><td>${fmtUSD(m.total)}</td>
+      <td class="${cls}">${m.momChange != null ? fmtUSD(m.momChange) : '—'}</td>
+      <td class="${cls}">${m.momPct != null ? fmtPct(m.momPct) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const monthlySection = !options.sections.monthlyBalance || !monthlyBalance || !monthlyBalance.length ? '' : `
+    <div class="ps-section">
+      <div class="ps-sh">Monthly Balance History</div>
+      <table class="ps-table">
+        <thead><tr><th>Month</th><th>Total</th><th>MoM Change</th><th>MoM %</th></tr></thead>
+        <tbody>${monthlyRows}</tbody>
+      </table>
+    </div>`;
+
+  const riskDetails = window.__riskDetails || {};
+  const riskCards = ['btc', 'xaut'].map((key) => {
+    const d = riskDetails[key];
+    if (!d || !d.latest) return '';
+    const src = RISK_SOURCES[key];
+    return `
+      <div class="ps-risk-card">
+        <div class="prc-name">${src.label}</div>
+        <div class="prc-score prc-tier-${d.tierClass}">${d.latest.composite_score != null ? d.latest.composite_score.toFixed(2) : '—'}</div>
+        <div class="prc-zone">${d.latest.zone || '—'}</div>
+        <div class="prc-meta">
+          <span class="k">Tier</span><span class="prc-tier-${d.tierClass}">${(d.tierClass || '—').toUpperCase()}</span>
+          <span class="k">Streak</span><span>${d.streak ? d.streak.tierDays + 'd' : '—'}</span>
+          <span class="k">Best streak</span><span>${d.streak ? d.streak.longest + 'd' : '—'}</span>
+          <span class="k">Holding</span><span>${fmtUSD(d.holdingUSD)}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  const riskSection = !options.sections.risk || !riskCards.trim() ? '' : `
+    <div class="ps-section">
+      <div class="ps-sh">Risk Scores</div>
+      <div class="ps-risk-cards">${riskCards}</div>
+    </div>`;
 
   snap.innerHTML = `
     <div class="ps-header">
@@ -3551,42 +3730,12 @@ function buildPrintSnapshot(data) {
       </div>
     </div>
 
-    <div class="ps-section">
-      <div class="ps-sh">Cash &amp; Bank</div>
-      <table class="ps-table">
-        <thead><tr><th>Account</th><th>Currency</th><th>Native</th><th>USD</th></tr></thead>
-        <tbody>${acctRows}</tbody>
-        <tfoot><tr class="ps-total"><td colspan="3">Subtotal</td><td>${fmtUSD(savings.cashSubtotal)}</td></tr></tfoot>
-      </table>
-    </div>
-
-    <div class="ps-section">
-      <div class="ps-sh">Holdings — DCA Positions</div>
-      <div class="ps-positions">${posCards}</div>
-      ${summary.dcaPace ? `<div style="font-size:8pt;color:#666">
-        Weeks active: ${summary.dcaPace.weeksActive}
-        &nbsp;·&nbsp; Avg/week: ${fmtUSD(summary.dcaPace.avgPerWeek)}
-        &nbsp;·&nbsp; Total invested: ${fmtUSD(summary.total ? summary.total.invested : null)}
-        &nbsp;·&nbsp; Portfolio value: ${fmtUSD(summary.total ? summary.total.marketValue : null)}
-      </div>` : ''}
-    </div>
-
-    ${chartImg ? `
-    <div class="ps-section">
-      <div class="ps-sh">Performance — Equity Curve</div>
-      <div class="ps-chart"><img src="${chartImg}" /></div>
-    </div>` : ''}
-
-    <div class="ps-section">
-      <div class="ps-sh">Trade Log — ${trades.length} Trades</div>
-      <table class="ps-table">
-        <thead><tr>
-          <th>Wk</th><th>Date</th><th>Asset</th><th>Price</th><th>Amount</th>
-          <th>Avg Cost</th><th>Mkt Value</th><th>Unreal. P&amp;L</th><th>Risk</th>
-        </tr></thead>
-        <tbody>${logRows}</tbody>
-      </table>
-    </div>
+    ${cashSection}
+    ${holdingsSection}
+    ${chartSection}
+    ${logSection}
+    ${monthlySection}
+    ${riskSection}
 
     <div class="ps-footer">
       <span>KHR/USD ≈ ${savings.fxRate ? savings.fxRate.toLocaleString() : '—'}</span>
@@ -3595,13 +3744,131 @@ function buildPrintSnapshot(data) {
     </div>`;
 }
 
+/* =========================================================================
+   PRINT OPTIONS MODAL
+   ========================================================================= */
+function buildPrintOptionsForm() {
+  return `
+    <div class="po-title">Print Snapshot</div>
+    <div class="po-sub">Choose what to include, then generate the print view.</div>
+
+    <div class="po-group">
+      <div class="po-group-label">Sections</div>
+      <div class="po-checks">
+        <label class="po-check"><input type="checkbox" id="po-sec-cash" checked> Cash &amp; Bank</label>
+        <label class="po-check"><input type="checkbox" id="po-sec-holdings" checked> Holdings</label>
+        <label class="po-check"><input type="checkbox" id="po-sec-chart" checked> Equity Chart</label>
+        <label class="po-check"><input type="checkbox" id="po-sec-log" checked> Trade Log</label>
+        <label class="po-check"><input type="checkbox" id="po-sec-monthly" checked> Monthly Balance</label>
+        <label class="po-check"><input type="checkbox" id="po-sec-risk" checked> Risk Scores</label>
+      </div>
+    </div>
+
+    <div class="po-group">
+      <div class="po-group-label">Trade Log Range</div>
+      <select class="po-select" id="po-daterange-select">
+        <option value="all" selected>All time</option>
+        <option value="ytd">This year</option>
+        <option value="6m">Last 6 months</option>
+        <option value="3m">Last 3 months</option>
+        <option value="custom">Custom range…</option>
+      </select>
+      <div class="po-daterange" id="po-custom-range">
+        <input type="date" id="po-date-from" aria-label="From date">
+        <input type="date" id="po-date-to" aria-label="To date">
+      </div>
+    </div>
+
+    <div class="po-group">
+      <div class="po-group-label">Layout</div>
+      <div class="po-radios">
+        <label class="po-radio"><input type="radio" name="po-layout" value="detailed" checked> Detailed</label>
+        <label class="po-radio"><input type="radio" name="po-layout" value="compact"> Compact</label>
+      </div>
+    </div>
+
+    <div class="po-error" id="po-error"></div>
+    <div class="po-actions">
+      <button class="po-btn" id="po-cancel" type="button">Cancel</button>
+      <button class="po-btn primary" id="po-generate" type="button">Generate &amp; Print</button>
+    </div>`;
+}
+
+function closePrintOptionsModal() {
+  document.getElementById('print-options-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function openPrintOptionsModal() {
+  document.getElementById('print-options-body').innerHTML = buildPrintOptionsForm();
+  document.getElementById('print-options-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('print-options-close').focus();
+
+  const sectionIds = ['po-sec-cash', 'po-sec-holdings', 'po-sec-chart', 'po-sec-log', 'po-sec-monthly', 'po-sec-risk'];
+  const generateBtn = document.getElementById('po-generate');
+  const errorEl = document.getElementById('po-error');
+  const rangeSelect = document.getElementById('po-daterange-select');
+  const customRange = document.getElementById('po-custom-range');
+
+  function updateGenerateState() {
+    const anyChecked = sectionIds.some((id) => document.getElementById(id).checked);
+    generateBtn.disabled = !anyChecked;
+    errorEl.textContent = anyChecked ? '' : 'Select at least one section.';
+  }
+  sectionIds.forEach((id) => document.getElementById(id).addEventListener('change', updateGenerateState));
+
+  rangeSelect.addEventListener('change', () => {
+    customRange.classList.toggle('show', rangeSelect.value === 'custom');
+  });
+
+  document.getElementById('po-cancel').addEventListener('click', closePrintOptionsModal);
+
+  generateBtn.addEventListener('click', () => {
+    const dateRange = rangeSelect.value;
+    const customFrom = document.getElementById('po-date-from').value || null;
+    const customTo = document.getElementById('po-date-to').value || null;
+
+    if (dateRange === 'custom' && customFrom && customTo && customFrom > customTo) {
+      errorEl.textContent = 'Start date must be before end date.';
+      return;
+    }
+
+    const options = {
+      sections: {
+        cash: document.getElementById('po-sec-cash').checked,
+        holdings: document.getElementById('po-sec-holdings').checked,
+        chart: document.getElementById('po-sec-chart').checked,
+        log: document.getElementById('po-sec-log').checked,
+        monthlyBalance: document.getElementById('po-sec-monthly').checked,
+        risk: document.getElementById('po-sec-risk').checked,
+      },
+      dateRange,
+      customFrom,
+      customTo,
+      layout: document.querySelector('input[name="po-layout"]:checked').value,
+    };
+
+    closePrintOptionsModal();
+    buildPrintSnapshot(window.__lastRenderData, options);
+    window.print();
+  });
+}
+
+document.getElementById('print-options-close').addEventListener('click', closePrintOptionsModal);
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'print-options-modal') closePrintOptionsModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('print-options-modal').classList.contains('hidden')) closePrintOptionsModal();
+});
+
 document.getElementById('print-btn').addEventListener('click', () => {
   if (!window.__lastRenderData) {
     alert('Data not loaded yet — wait for the page to finish loading then try again.');
     return;
   }
-  buildPrintSnapshot(window.__lastRenderData);
-  window.print();
+  openPrintOptionsModal();
 });
 
 loadAll();

@@ -261,86 +261,6 @@
     text-align:right;
   }
 
-  /* ---------- target allocation editor (no chart) ---------- */
-  .target-editor{list-style:none;margin:0;padding:0;width:100%;}
-  .target-row{
-    display:flex;align-items:center;gap:8px;
-    padding:8px 0;font-family:var(--mono);font-size:11.5px;
-    border-bottom:1px solid var(--hair);
-  }
-  .target-row:last-child{border-bottom:none;}
-  .target-row .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-  .target-row .name{flex:1;min-width:0;text-align:left;color:var(--ink-dim);}
-  .target-row .current-pct{color:var(--ink-faint);font-size:10.5px;width:56px;text-align:right;white-space:nowrap;}
-  .target-row .input-wrap{display:flex;align-items:center;gap:3px;flex-shrink:0;}
-  .target-row input[type="number"]{
-    width:44px;background:var(--bg-panel-2);border:1px solid var(--hair-bright);
-    color:var(--ink);font-family:var(--mono);font-size:11.5px;padding:4px 3px 4px 6px;
-    border-radius:6px;text-align:right;
-    -moz-appearance:textfield;
-  }
-  .target-row input[type="number"]::-webkit-outer-spin-button,
-  .target-row input[type="number"]::-webkit-inner-spin-button{
-    -webkit-appearance:none;margin:0;
-  }
-  .target-row input[type="number"]:focus{outline:none;border-color:var(--accent2);}
-  .target-row .pct-sign{color:var(--ink-faint);font-size:10.5px;}
-  .target-row .drift{width:44px;text-align:right;font-size:10px;white-space:nowrap;}
-  .target-row .drift.up{color:var(--gain);}
-  .target-row .drift.down{color:var(--loss);}
-  .target-row .drift.flat{color:var(--ink-faint);}
-  .target-total{
-    display:flex;justify-content:space-between;align-items:center;gap:10px;
-    padding-top:10px;margin-top:2px;border-top:1px solid var(--hair-bright);
-    font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);
-  }
-  .target-total .sum{margin-left:auto;}
-  .target-total .sum.valid{color:var(--gain);font-weight:700;}
-  .target-total .sum.invalid{color:var(--loss);font-weight:700;}
-  .target-save-btn{width:100%;margin-top:12px;}
-  .target-save-btn:disabled{opacity:.4;cursor:not-allowed;}
-
-  .rebal-section{
-    border:1px solid var(--hair-bright);
-    border-radius:12px;
-    padding:20px;
-    background:var(--bg-panel);
-  }
-  .rebal-section h3{
-    font-size:13px;
-    font-weight:600;
-    text-transform:uppercase;
-    letter-spacing:.08em;
-    color:var(--ink-dim);
-    margin:0 0 16px;
-    font-family:var(--mono);
-  }
-  .rebal-actions{list-style:none;margin:0;padding:0;}
-  .rebal-action{
-    display:grid;
-    grid-template-columns:120px 1fr 100px 120px;
-    gap:12px;
-    align-items:center;
-    padding:12px;
-    background:var(--bg-panel-2);
-    border-radius:8px;
-    margin-bottom:8px;
-    font-size:12px;
-    font-family:var(--mono);
-  }
-  .rebal-action:last-child{margin-bottom:0;}
-  .rebal-action .asset{font-weight:600;color:var(--ink);}
-  .rebal-action .direction{
-    padding:4px 8px;
-    border-radius:4px;
-    text-align:center;
-    font-weight:600;
-  }
-  .rebal-action .direction.buy{background:rgba(52,211,153,0.2);color:var(--gain);}
-  .rebal-action .direction.sell{background:rgba(251,113,133,0.2);color:var(--loss);}
-  .rebal-action .amount{text-align:right;color:var(--ink-dim);}
-  .rebal-empty{color:var(--ink-faint);font-size:12px;padding:16px;text-align:center;}
-
   @keyframes hero-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
   @media (prefers-reduced-motion:reduce){
     .hero{animation:none;}
@@ -3430,7 +3350,7 @@ function render(data) {
   // ---- monthly balance trend ----
   renderMonthlyBalancePanel(monthlyBalance, savings.totalNetSavings);
 
-  // ---- asset allocation & rebalancing ----
+  // ---- asset allocation ----
   renderAllocationUI(savings, summary);
 
   // ---- title block ----
@@ -3643,35 +3563,8 @@ async function loadTab(key, label, parser, timeoutMs, range) {
 }
 
 /* =========================================================================
-   ASSET ALLOCATION & REBALANCING
+   ASSET ALLOCATION
    ========================================================================= */
-
-// Default target allocations (stored in localStorage)
-const DEFAULT_TARGETS = {
-  'Cash': 20,
-  'BTC': 50,
-  'Gold': 15,
-  'Stablecoin': 15
-};
-
-const TARGETS_VERSION = 'v2-20-50-15-15';
-
-function loadTargetAllocation() {
-  const storedVersion = localStorage.getItem('__alloc-targets-version');
-  const stored = localStorage.getItem('__alloc-targets');
-  if (!stored || storedVersion !== TARGETS_VERSION) return DEFAULT_TARGETS;
-  const parsed = JSON.parse(stored);
-  // Migration: if stored targets don't match the current asset set (e.g. old 3-asset
-  // version without Stablecoin), fall back to defaults rather than showing NaN/missing rows.
-  const sameKeys = Object.keys(DEFAULT_TARGETS).every((k) => k in parsed)
-    && Object.keys(parsed).every((k) => k in DEFAULT_TARGETS);
-  return sameKeys ? parsed : DEFAULT_TARGETS;
-}
-
-function saveTargetAllocation(targets) {
-  localStorage.setItem('__alloc-targets', JSON.stringify(targets));
-  localStorage.setItem('__alloc-targets-version', TARGETS_VERSION);
-}
 
 // Single source of truth for allocation colors, keyed by asset name so the
 // chart and legend can never drift apart. Roughly follows each asset's own
@@ -3857,7 +3750,6 @@ function attachAllocTooltips(svgEl) {
 }
 
 function renderAllocationUI(savings, summary) {
-  const targets = loadTargetAllocation();
   const total = savings.totalNetSavings || 1;
   
   // Current allocation

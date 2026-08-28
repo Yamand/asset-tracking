@@ -203,9 +203,17 @@
     margin:0 0 8px;
     font-weight:400;
   }
-  .alloc-pie{width:220px;max-width:100%;height:auto;display:block;margin:2px auto 12px;overflow:visible;filter:drop-shadow(0 0 20px rgba(139,92,246,0.14));}
-  .alloc-seg{cursor:pointer;transition:opacity .15s ease;}
-  .alloc-seg:hover{opacity:0.75!important;}
+  .alloc-pie{width:258px;max-width:100%;height:auto;display:block;margin:2px auto 14px;overflow:visible;filter:drop-shadow(0 12px 28px rgba(0,0,0,0.45));}
+  .alloc-seg{
+    cursor:pointer;
+    transform-box:fill-box;
+    transform-origin:center;
+    transition:transform .22s cubic-bezier(.2,.8,.2,1), filter .22s ease;
+  }
+  .alloc-seg:hover{
+    transform:scale(1.045);
+    filter:brightness(1.12) drop-shadow(0 3px 10px rgba(0,0,0,0.5));
+  }
   .alloc-tooltip{
     position:fixed;
     z-index:9999;
@@ -1063,7 +1071,7 @@
         <div class="alloc-grid">
           <div class="alloc-card">
             <h3>Current Allocation</h3>
-            <svg class="alloc-pie" id="alloc-pie-current" viewBox="0 0 100 88" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg class="alloc-pie" id="alloc-pie-current" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
             <ul class="alloc-list" id="alloc-list-current"></ul>
           </div>
           <div class="alloc-card">
@@ -3711,11 +3719,13 @@ function sectorPath(cx, cy, rx, ry, startAngle, endAngle) {
 }
 
 function drawPieChart(svgEl, data) {
-  // Flat, filled pie chart (no ring/donut hole, no fake 3D extrusion).
-  // Plain circle geometry (not the old cx/cy/rx/ry ellipse) since there's
-  // no tilt to fake anymore — a true circle reads each slice's angle/area
-  // accurately instead of distorting it toward the viewer.
-  const cx = 50, cy = 44, r = 40;
+  // Modern "separated petal" pie: each slice sits on a thin gap from its
+  // neighbors, is nudged outward along its own mid-angle, gets a glossy
+  // radial-gradient fill (highlight near the outer edge, like light
+  // catching a curved glass surface), and lifts on hover. No ring/donut
+  // hole — slices are still fully filled, just visually separated instead
+  // of butted edge-to-edge like a plain flat pie.
+  const cx = 50, cy = 50, r = 45, gapDeg = 2.2, explode = 3.2;
   const gradPrefix = `allocGrad-${svgEl.id}`;
 
   let angle = -90;
@@ -3727,6 +3737,8 @@ function drawPieChart(svgEl, data) {
     return w;
   }).filter((w) => w.pct > 0);
 
+  const singleSlice = wedges.length === 1;
+
   let defsHtml = '';
   let sliceHtml = '';
   let labelHtml = '';
@@ -3734,26 +3746,42 @@ function drawPieChart(svgEl, data) {
     const { item, i, pct, start, end } = w;
     const base = assetColor(item.name, i, 'base');
     const light = assetColor(item.name, i, 'light');
+    const mid = (start + end) / 2;
+    const midRad = mid * Math.PI / 180;
+    const dx = Math.cos(midRad) * explode;
+    const dy = Math.sin(midRad) * explode;
+
+    // small angular gap between neighbors (skipped for a single 100% slice)
+    const g = singleSlice ? 0 : gapDeg / 2;
+    const path = singleSlice
+      ? `M ${cx} ${cy} m -${r} 0 a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 -${r * 2} 0 Z`
+      : sectorPath(cx, cy, r, r, start + g, end - g);
+
+    // glossy radial highlight offset toward the slice's outer mid-angle
     const gradId = `${gradPrefix}-${i}`;
-    // subtle top-left-to-bottom-right sheen so flat fills don't look inert,
-    // without implying any depth/tilt
-    defsHtml += `<linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1">
+    const hlx = 50 + Math.cos(midRad) * 28;
+    const hly = 50 + Math.sin(midRad) * 28;
+    defsHtml += `<radialGradient id="${gradId}" cx="${hlx}%" cy="${hly}%" r="75%">
       <stop offset="0%" stop-color="${light}"/>
       <stop offset="100%" stop-color="${base}"/>
-    </linearGradient>`;
+    </radialGradient>`;
 
-    const full = pct >= 99.99;
-    const path = full
-      ? `M ${cx} ${cy} m -${r} 0 a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 -${r * 2} 0 Z`
-      : sectorPath(cx, cy, r, r, start, end);
-
-    sliceHtml += `<path d="${path}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1.2" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
+    sliceHtml += `<path d="${path}" fill="url(#${gradId})" stroke="rgba(10,11,20,0.55)" stroke-width="0.8" stroke-linejoin="round" class="alloc-seg" transform="translate(${dx.toFixed(2)} ${dy.toFixed(2)})" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
 
     if (pct >= 6) {
-      const midRad = ((start + end) / 2) * Math.PI / 180;
-      const lx = cx + r * 0.62 * Math.cos(midRad);
-      const ly = cy + r * 0.62 * Math.sin(midRad);
-      labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
+      const lx = cx + dx + r * 0.62 * Math.cos(midRad);
+      const ly = cy + dy + r * 0.62 * Math.sin(midRad);
+      if (pct >= 10) {
+        // roomy slice: asset name on its own line above the percentage.
+        // Name font shrinks with length so long labels (e.g. "Stablecoin")
+        // still fit the slice width instead of overflowing it.
+        const nameFontSize = item.name.length > 9 ? 3.3 : item.name.length > 6 ? 3.9 : 4.5;
+        labelHtml += `<text x="${lx.toFixed(1)}" y="${(ly - 4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize}" font-weight="600" letter-spacing="0" fill="rgba(10,11,20,0.75)" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${item.name}</text>`;
+        labelHtml += `<text x="${lx.toFixed(1)}" y="${(ly + 4.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
+      } else {
+        // tight slice: percentage only, no room for a second line
+        labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
+      }
     }
   });
 

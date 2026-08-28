@@ -182,7 +182,7 @@
 
   /* ---------- asset allocation ---------- */
   .alloc-section{margin-bottom:34px;}
-  .alloc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:20px;}
+  .alloc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:20px;max-width:460px;}
   .alloc-card{
     border:1px solid var(--hair-bright);
     background:var(--bg-panel);
@@ -1074,19 +1074,7 @@
             <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
             <ul class="alloc-list" id="alloc-list-current"></ul>
           </div>
-          <div class="alloc-card">
-            <h3>Target Allocation</h3>
-            <div class="target-editor" id="target-editor"></div>
-            <div class="target-total" id="target-total"></div>
-            <button class="tab-btn target-save-btn" id="alloc-save-targets">Save Targets</button>
-          </div>
         </div>
-      </div>
-
-      <!-- Rebalancing Section -->
-      <div class="rebal-section" id="rebal-section">
-        <h3>Rebalancing Recommendations</h3>
-        <ul class="rebal-actions" id="rebal-actions"></ul>
       </div>
     </div>
 
@@ -3903,97 +3891,6 @@ function renderAllocationUI(savings, summary) {
     </li>
   `).join('');
   
-  // Render target allocation as an editable section (no chart) — each row
-  // shows the current % for reference plus a live-editable target % input.
-  renderTargetEditor(targets, current, savings, summary);
-
-  // Rebalancing recommendations
-  const rebalActions = [];
-  
-  Object.keys(targets).forEach((asset) => {
-    const target = targets[asset];
-    const actual = current[asset]?.pct || 0;
-    const drift = actual - target;
-    
-    if (Math.abs(drift) > 2) {  // Only show drifts > 2%
-      const driftVal = (drift / 100) * total;
-      const action = drift > 0 ? 'SELL' : 'BUY';
-      const direction = drift > 0 ? 'sell' : 'buy';
-      rebalActions.push({ asset, action, direction, amount: Math.abs(driftVal), drift });
-    }
-  });
-  
-  const rebalEl = document.getElementById('rebal-actions');
-  if (rebalActions.length === 0) {
-    rebalEl.innerHTML = '<li class="rebal-empty">Portfolio is well-balanced. No rebalancing needed.</li>';
-  } else {
-    rebalEl.innerHTML = rebalActions.map((r) => `
-      <li class="rebal-action">
-        <div class="asset">${r.asset}</div>
-        <div class="direction ${r.direction}">${r.action}</div>
-        <div class="amount">${fmtUSD(r.amount)}</div>
-        <div style="font-size:11px;color:var(--ink-faint);">${r.drift.toFixed(1)}% drift</div>
-      </li>
-    `).join('');
-  }
-  
-}
-
-/* ---------- editable target-allocation section (rows + inputs, no chart) ---------- */
-function renderTargetEditor(targets, current, savings, summary) {
-  const editor = document.getElementById('target-editor');
-  const totalEl = document.getElementById('target-total');
-  const saveBtn = document.getElementById('alloc-save-targets');
-  const names = Object.keys(targets);
-
-  editor.innerHTML = names.map((name, i) => {
-    const actual = current[name]?.pct || 0;
-    const drift = targets[name] - actual;
-    const driftDir = Math.abs(drift) < 0.5 ? 'flat' : (drift > 0 ? 'up' : 'down');
-    const driftLabel = Math.abs(drift) < 0.5 ? 'on target' : `${drift > 0 ? '+' : ''}${drift.toFixed(1)}%`;
-    return `
-      <div class="target-row">
-        <div class="dot" style="background:${assetColor(name, i, 'base')}"></div>
-        <div class="name">${name}</div>
-        <div class="current-pct">now ${actual.toFixed(1)}%</div>
-        <div class="input-wrap">
-          <input type="number" min="0" max="100" step="0.5" value="${targets[name].toFixed(1)}" data-target-asset="${name}" aria-label="Target % for ${name}">
-          <span class="pct-sign">%</span>
-        </div>
-        <div class="drift ${driftDir}">${driftLabel}</div>
-      </div>`;
-  }).join('');
-
-  function currentSum() {
-    let s = 0;
-    editor.querySelectorAll('input[data-target-asset]').forEach((inp) => { s += parseFloat(inp.value) || 0; });
-    return s;
-  }
-
-  function refreshTotal() {
-    const sum = currentSum();
-    const valid = Math.abs(sum - 100) < 0.15;
-    totalEl.innerHTML = `<span>Total target</span><span class="sum ${valid ? 'valid' : 'invalid'}">${sum.toFixed(1)}%</span>`;
-    saveBtn.disabled = !valid;
-  }
-  refreshTotal();
-
-  editor.querySelectorAll('input[data-target-asset]').forEach((inp) => {
-    inp.addEventListener('input', refreshTotal);
-  });
-
-  // assign via onclick, not addEventListener, so re-renders don't stack
-  // duplicate handlers on the same button
-  saveBtn.onclick = () => {
-    const sum = currentSum();
-    if (Math.abs(sum - 100) >= 0.15) return; // guarded by disabled state, but double-check
-    const newTargets = {};
-    editor.querySelectorAll('input[data-target-asset]').forEach((inp) => {
-      newTargets[inp.dataset.targetAsset] = parseFloat(inp.value) || 0;
-    });
-    saveTargetAllocation(newTargets);
-    renderAllocationUI(savings, summary); // re-render with new targets
-  };
 }
 
 async function loadAll() {

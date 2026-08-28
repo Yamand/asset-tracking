@@ -253,6 +253,39 @@
     text-align:right;
   }
 
+  /* ---------- target allocation editor (no chart) ---------- */
+  .target-editor{list-style:none;margin:0;padding:0;width:100%;}
+  .target-row{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 0;font-family:var(--mono);font-size:11.5px;
+    border-bottom:1px solid var(--hair);
+  }
+  .target-row:last-child{border-bottom:none;}
+  .target-row .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .target-row .name{flex:1;min-width:0;text-align:left;color:var(--ink-dim);}
+  .target-row .current-pct{color:var(--ink-faint);font-size:10.5px;width:56px;text-align:right;white-space:nowrap;}
+  .target-row .input-wrap{display:flex;align-items:center;gap:3px;flex-shrink:0;}
+  .target-row input[type="number"]{
+    width:50px;background:var(--bg-panel-2);border:1px solid var(--hair-bright);
+    color:var(--ink);font-family:var(--mono);font-size:11.5px;padding:4px 5px;
+    border-radius:6px;text-align:right;
+  }
+  .target-row input[type="number"]:focus{outline:none;border-color:var(--accent2);}
+  .target-row .pct-sign{color:var(--ink-faint);font-size:10.5px;}
+  .target-row .drift{width:44px;text-align:right;font-size:10px;white-space:nowrap;}
+  .target-row .drift.up{color:var(--gain);}
+  .target-row .drift.down{color:var(--loss);}
+  .target-row .drift.flat{color:var(--ink-faint);}
+  .target-total{
+    display:flex;justify-content:space-between;align-items:center;
+    padding-top:10px;margin-top:2px;border-top:1px solid var(--hair-bright);
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);
+  }
+  .target-total .sum.valid{color:var(--gain);font-weight:700;}
+  .target-total .sum.invalid{color:var(--loss);font-weight:700;}
+  .target-save-btn{width:100%;margin-top:12px;}
+  .target-save-btn:disabled{opacity:.4;cursor:not-allowed;}
+
   .rebal-section{
     border:1px solid var(--hair-bright);
     border-radius:12px;
@@ -1029,9 +1062,9 @@
           </div>
           <div class="alloc-card">
             <h3>Target Allocation</h3>
-            <svg class="alloc-pie" id="alloc-pie-target" viewBox="0 0 100 88" preserveAspectRatio="xMidYMid meet"></svg>
-            <ul class="alloc-list" id="alloc-list-target"></ul>
-            <button class="tab-btn" style="width:100%;margin-top:12px;" id="alloc-edit-targets">Edit Targets</button>
+            <div class="target-editor" id="target-editor"></div>
+            <div class="target-total" id="target-total"></div>
+            <button class="tab-btn target-save-btn" id="alloc-save-targets">Save Targets</button>
           </div>
         </div>
       </div>
@@ -3672,17 +3705,13 @@ function sectorPath(cx, cy, rx, ry, startAngle, endAngle) {
 }
 
 function drawPieChart(svgEl, data) {
-  // 3D extruded pie: tilt the pie into an ellipse, draw a shaded copy shifted
-  // straight down underneath (the "side wall", using a per-wedge vertical
-  // gradient so it reads as a curved surface catching less light toward the
-  // bottom rather than a flat dark block), then draw the full color top face
-  // on top. Since the top face fully covers the shifted copy except where it
-  // pokes out past the bottom rim, this reads as a cylinder side without any
-  // per-angle visibility math.
-  const cx = 50, cy = 34, rx = 44, ry = 24, depth = 15;
+  // Flat, filled pie chart (no ring/donut hole, no fake 3D extrusion).
+  // Plain circle geometry (not the old cx/cy/rx/ry ellipse) since there's
+  // no tilt to fake anymore — a true circle reads each slice's angle/area
+  // accurately instead of distorting it toward the viewer.
+  const cx = 50, cy = 44, r = 40;
   const gradPrefix = `allocGrad-${svgEl.id}`;
 
-  // Precompute each wedge's angle range once, shared by side + top passes.
   let angle = -90;
   const wedges = data.map((item, i) => {
     const pct = item.pct || 0;
@@ -3692,51 +3721,37 @@ function drawPieChart(svgEl, data) {
     return w;
   }).filter((w) => w.pct > 0);
 
-  // Side wall: per-wedge vertical gradient (lighter near the rim, darker at
-  // the bottom) instead of one flat shade, so adjacent sectors blend into a
-  // continuous curved wall rather than looking like cut-out flat pieces.
   let defsHtml = '';
-  let sideHtml = '';
-  wedges.forEach((w) => {
-    const base = assetColor(w.item.name, w.i, 'base');
-    const sideGradId = `${gradPrefix}-side-${w.i}`;
-    const topShade = shadeColor(base, -18);
-    const botShade = shadeColor(base, -55);
-    defsHtml += `<linearGradient id="${sideGradId}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${topShade}"/>
-      <stop offset="100%" stop-color="${botShade}"/>
-    </linearGradient>`;
-    sideHtml += `<path d="${sectorPath(cx, cy + depth, rx, ry, w.start, w.end)}" fill="url(#${sideGradId})" stroke="${botShade}" stroke-width="0.4" stroke-linejoin="round"/>`;
-  });
-
-  // Top face: gradient sectors + labels + tooltip targets.
-  let topHtml = '';
+  let sliceHtml = '';
   let labelHtml = '';
   wedges.forEach((w) => {
     const { item, i, pct, start, end } = w;
     const base = assetColor(item.name, i, 'base');
     const light = assetColor(item.name, i, 'light');
     const gradId = `${gradPrefix}-${i}`;
+    // subtle top-left-to-bottom-right sheen so flat fills don't look inert,
+    // without implying any depth/tilt
     defsHtml += `<linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${light}"/>
       <stop offset="100%" stop-color="${base}"/>
     </linearGradient>`;
 
-    topHtml += `<path d="${sectorPath(cx, cy, rx, ry, start, end)}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
+    const full = pct >= 99.99;
+    const path = full
+      ? `M ${cx} ${cy} m -${r} 0 a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 -${r * 2} 0 Z`
+      : sectorPath(cx, cy, r, r, start, end);
 
-    if (pct >= 8) {
+    sliceHtml += `<path d="${path}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1.2" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
+
+    if (pct >= 6) {
       const midRad = ((start + end) / 2) * Math.PI / 180;
-      const lx = cx + rx * 0.6 * Math.cos(midRad);
-      const ly = cy + ry * 0.6 * Math.sin(midRad);
+      const lx = cx + r * 0.62 * Math.cos(midRad);
+      const ly = cy + r * 0.62 * Math.sin(midRad);
       labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
     }
   });
 
-  // Thin glossy rim highlight along the top surface boundary, reinforcing
-  // the sense of a curved lid rather than a flat cut-out disc.
-  const rimHtml = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="0.8" style="pointer-events:none;"/>`;
-
-  svgEl.innerHTML = `<defs>${defsHtml}</defs>${sideHtml}${topHtml}${rimHtml}${labelHtml}`;
+  svgEl.innerHTML = `<defs>${defsHtml}</defs>${sliceHtml}${labelHtml}`;
   attachAllocTooltips(svgEl);
 }
 
@@ -3812,20 +3827,10 @@ function renderAllocationUI(savings, summary) {
     </li>
   `).join('');
   
-  // Render target allocation
-  const targetData = Object.entries(targets).map(([name, pct]) => ({ name, pct, val: (pct / 100) * total }));
-  drawPieChart(document.getElementById('alloc-pie-target'), targetData);
-  
-  const targetList = document.getElementById('alloc-list-target');
-  targetList.innerHTML = targetData.map((d, i) => `
-    <li class="alloc-item">
-      <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
-      <div class="alloc-item-name">${d.name}</div>
-      <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
-      <div class="alloc-item-val">${fmtUSD(d.val)}</div>
-    </li>
-  `).join('');
-  
+  // Render target allocation as an editable section (no chart) — each row
+  // shows the current % for reference plus a live-editable target % input.
+  renderTargetEditor(targets, current, savings, summary);
+
   // Rebalancing recommendations
   const rebalActions = [];
   
@@ -3856,29 +3861,62 @@ function renderAllocationUI(savings, summary) {
     `).join('');
   }
   
-  // Edit targets button (assign via onclick, not addEventListener, so re-renders
-  // don't stack duplicate handlers on the same button)
-  document.getElementById('alloc-edit-targets').onclick = () => {
+}
+
+/* ---------- editable target-allocation section (rows + inputs, no chart) ---------- */
+function renderTargetEditor(targets, current, savings, summary) {
+  const editor = document.getElementById('target-editor');
+  const totalEl = document.getElementById('target-total');
+  const saveBtn = document.getElementById('alloc-save-targets');
+  const names = Object.keys(targets);
+
+  editor.innerHTML = names.map((name, i) => {
+    const actual = current[name]?.pct || 0;
+    const drift = targets[name] - actual;
+    const driftDir = Math.abs(drift) < 0.5 ? 'flat' : (drift > 0 ? 'up' : 'down');
+    const driftLabel = Math.abs(drift) < 0.5 ? 'on target' : `${drift > 0 ? '+' : ''}${drift.toFixed(1)}%`;
+    return `
+      <div class="target-row">
+        <div class="dot" style="background:${assetColor(name, i, 'base')}"></div>
+        <div class="name">${name}</div>
+        <div class="current-pct">now ${actual.toFixed(1)}%</div>
+        <div class="input-wrap">
+          <input type="number" min="0" max="100" step="0.5" value="${targets[name].toFixed(1)}" data-target-asset="${name}" aria-label="Target % for ${name}">
+          <span class="pct-sign">%</span>
+        </div>
+        <div class="drift ${driftDir}">${driftLabel}</div>
+      </div>`;
+  }).join('');
+
+  function currentSum() {
+    let s = 0;
+    editor.querySelectorAll('input[data-target-asset]').forEach((inp) => { s += parseFloat(inp.value) || 0; });
+    return s;
+  }
+
+  function refreshTotal() {
+    const sum = currentSum();
+    const valid = Math.abs(sum - 100) < 0.15;
+    totalEl.innerHTML = `<span>Total target</span><span class="sum ${valid ? 'valid' : 'invalid'}">${sum.toFixed(1)}%</span>`;
+    saveBtn.disabled = !valid;
+  }
+  refreshTotal();
+
+  editor.querySelectorAll('input[data-target-asset]').forEach((inp) => {
+    inp.addEventListener('input', refreshTotal);
+  });
+
+  // assign via onclick, not addEventListener, so re-renders don't stack
+  // duplicate handlers on the same button
+  saveBtn.onclick = () => {
+    const sum = currentSum();
+    if (Math.abs(sum - 100) >= 0.15) return; // guarded by disabled state, but double-check
     const newTargets = {};
-    let totalTarget = 0;
-    
-    Object.keys(targets).forEach((asset) => {
-      const newVal = prompt(`Target allocation for ${asset} (%)`, targets[asset].toFixed(1));
-      if (newVal !== null) {
-        const pct = Math.max(0, Math.min(100, parseFloat(newVal) || 0));
-        newTargets[asset] = pct;
-        totalTarget += pct;
-      }
+    editor.querySelectorAll('input[data-target-asset]').forEach((inp) => {
+      newTargets[inp.dataset.targetAsset] = parseFloat(inp.value) || 0;
     });
-    
-    if (totalTarget > 0 && Object.keys(newTargets).length > 0) {
-      // Normalize to 100%
-      Object.keys(newTargets).forEach((asset) => {
-        newTargets[asset] = (newTargets[asset] / totalTarget) * 100;
-      });
-      saveTargetAllocation(newTargets);
-      renderAllocationUI(savings, summary);  // Re-render with new targets
-    }
+    saveTargetAllocation(newTargets);
+    renderAllocationUI(savings, summary); // re-render with new targets
   };
 }
 

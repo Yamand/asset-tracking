@@ -1024,12 +1024,12 @@
         <div class="alloc-grid">
           <div class="alloc-card">
             <h3>Current Allocation</h3>
-            <svg class="alloc-pie" id="alloc-pie-current" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg class="alloc-pie" id="alloc-pie-current" viewBox="0 0 100 88" preserveAspectRatio="xMidYMid meet"></svg>
             <ul class="alloc-list" id="alloc-list-current"></ul>
           </div>
           <div class="alloc-card">
             <h3>Target Allocation</h3>
-            <svg class="alloc-pie" id="alloc-pie-target" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg class="alloc-pie" id="alloc-pie-target" viewBox="0 0 100 88" preserveAspectRatio="xMidYMid meet"></svg>
             <ul class="alloc-list" id="alloc-list-target"></ul>
             <button class="tab-btn" style="width:100%;margin-top:12px;" id="alloc-edit-targets">Edit Targets</button>
           </div>
@@ -3638,53 +3638,74 @@ function saveTargetAllocation(targets) {
   localStorage.setItem('__alloc-targets-version', TARGETS_VERSION);
 }
 
+function shadeColor(hex, percent) {
+  // percent negative = darker, positive = lighter
+  const f = parseInt(hex.slice(1), 16), t = percent < 0 ? 0 : 255, p = Math.abs(percent) / 100;
+  const R = f >> 16, G = (f >> 8) & 0x00FF, B = f & 0x0000FF;
+  return '#' + (0x1000000 + (Math.round((t - R) * p) + R) * 0x10000
+    + (Math.round((t - G) * p) + G) * 0x100
+    + (Math.round((t - B) * p) + B)).toString(16).slice(1);
+}
+
+function sectorPath(cx, cy, rx, ry, startAngle, endAngle) {
+  const rad = (a) => (a * Math.PI) / 180;
+  const x1 = cx + rx * Math.cos(rad(startAngle)), y1 = cy + ry * Math.sin(rad(startAngle));
+  const x2 = cx + rx * Math.cos(rad(endAngle)), y2 = cy + ry * Math.sin(rad(endAngle));
+  const isLarge = (endAngle - startAngle) > 180 ? 1 : 0;
+  return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${rx} ${ry} 0 ${isLarge} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+}
+
 function drawPieChart(svgEl, data) {
-  // Filled pie wedges (not a ring) with a gradient sheen per slice for depth,
-  // thin dark separators between wedges, and hover-driven tooltips (see
-  // attachAllocTooltips).
+  // 3D extruded pie: tilt the pie into an ellipse, draw a darker-shaded copy
+  // shifted straight down underneath (the "side wall"), then draw the full
+  // color top face on top. Since the top face fully covers the shifted copy
+  // except where it pokes out past the bottom rim, this reads as a cylinder
+  // side without any per-angle visibility math.
   const baseColors = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
   const lightColors = ['#B8A6FA', '#7EEBFB', '#FFD75E', '#7EF0C4'];
-  const cx = 50, cy = 50, r = 45;
+  const cx = 50, cy = 34, rx = 44, ry = 24, depth = 13;
   const gradPrefix = `allocGrad-${svgEl.id}`;
 
-  let startAngle = -90;
-  let defsHtml = '';
-  let segHtml = '';
-  let labelHtml = '';
-
-  data.forEach((item, i) => {
+  // Precompute each wedge's angle range once, shared by side + top passes.
+  let angle = -90;
+  const wedges = data.map((item, i) => {
     const pct = item.pct || 0;
-    if (pct <= 0) return;
-    const angle = (pct / 100) * 360;
-    const endAngle = startAngle + angle;
-    const isLarge = angle > 180 ? 1 : 0;
+    const sweep = (pct / 100) * 360;
+    const w = { item, i, pct, start: angle, end: angle + sweep };
+    angle += sweep;
+    return w;
+  }).filter((w) => w.pct > 0);
+
+  // Side wall: darker-shaded full sectors, shifted down by `depth`.
+  let sideHtml = '';
+  wedges.forEach((w) => {
+    const dark = shadeColor(baseColors[w.i % baseColors.length], -38);
+    sideHtml += `<path d="${sectorPath(cx, cy + depth, rx, ry, w.start, w.end)}" fill="${dark}" stroke="${dark}" stroke-width="0.5"/>`;
+  });
+
+  // Top face: gradient sectors + labels + tooltip targets.
+  let defsHtml = '';
+  let topHtml = '';
+  let labelHtml = '';
+  wedges.forEach((w) => {
+    const { item, i, pct, start, end } = w;
     const gradId = `${gradPrefix}-${i}`;
-
-    const rad = (a) => (a * Math.PI) / 180;
-    const x1 = cx + r * Math.cos(rad(startAngle)), y1 = cy + r * Math.sin(rad(startAngle));
-    const x2 = cx + r * Math.cos(rad(endAngle)), y2 = cy + r * Math.sin(rad(endAngle));
-
     defsHtml += `<linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${lightColors[i % lightColors.length]}"/>
       <stop offset="100%" stop-color="${baseColors[i % baseColors.length]}"/>
     </linearGradient>`;
 
-    const d = `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${isLarge} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
-
-    segHtml += `<path d="${d}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1.5" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
+    topHtml += `<path d="${sectorPath(cx, cy, rx, ry, start, end)}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1.2" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
 
     if (pct >= 8) {
-      const midRad = rad((startAngle + endAngle) / 2);
-      const lr = r * 0.62;
-      const lx = cx + lr * Math.cos(midRad);
-      const ly = cy + lr * Math.sin(midRad);
+      const midRad = ((start + end) / 2) * Math.PI / 180;
+      const lx = cx + rx * 0.6 * Math.cos(midRad);
+      const ly = cy + ry * 0.6 * Math.sin(midRad);
       labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
     }
-
-    startAngle = endAngle;
   });
 
-  svgEl.innerHTML = `<defs>${defsHtml}</defs>${segHtml}${labelHtml}`;
+  svgEl.innerHTML = `<defs>${defsHtml}</defs>${sideHtml}${topHtml}${labelHtml}`;
   attachAllocTooltips(svgEl);
 }
 

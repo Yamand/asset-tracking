@@ -266,9 +266,14 @@
   .target-row .current-pct{color:var(--ink-faint);font-size:10.5px;width:56px;text-align:right;white-space:nowrap;}
   .target-row .input-wrap{display:flex;align-items:center;gap:3px;flex-shrink:0;}
   .target-row input[type="number"]{
-    width:50px;background:var(--bg-panel-2);border:1px solid var(--hair-bright);
-    color:var(--ink);font-family:var(--mono);font-size:11.5px;padding:4px 5px;
+    width:44px;background:var(--bg-panel-2);border:1px solid var(--hair-bright);
+    color:var(--ink);font-family:var(--mono);font-size:11.5px;padding:4px 3px 4px 6px;
     border-radius:6px;text-align:right;
+    -moz-appearance:textfield;
+  }
+  .target-row input[type="number"]::-webkit-outer-spin-button,
+  .target-row input[type="number"]::-webkit-inner-spin-button{
+    -webkit-appearance:none;margin:0;
   }
   .target-row input[type="number"]:focus{outline:none;border-color:var(--accent2);}
   .target-row .pct-sign{color:var(--ink-faint);font-size:10.5px;}
@@ -277,10 +282,11 @@
   .target-row .drift.down{color:var(--loss);}
   .target-row .drift.flat{color:var(--ink-faint);}
   .target-total{
-    display:flex;justify-content:space-between;align-items:center;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding-top:10px;margin-top:2px;border-top:1px solid var(--hair-bright);
     font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);
   }
+  .target-total .sum{margin-left:auto;}
   .target-total .sum.valid{color:var(--gain);font-weight:700;}
   .target-total .sum.invalid{color:var(--loss);font-weight:700;}
   .target-save-btn{width:100%;margin-top:12px;}

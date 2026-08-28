@@ -3639,17 +3639,15 @@ function saveTargetAllocation(targets) {
 }
 
 function drawPieChart(svgEl, data) {
-  // Donut built the same way as the DCA gauge arcs: a faint background track,
-  // rounded-cap stroke segments with a subtle gradient sheen for depth, small
-  // gaps between segments, and hover-driven tooltips (see attachAllocTooltips).
+  // Filled pie wedges (not a ring) with a gradient sheen per slice for depth,
+  // thin dark separators between wedges, and hover-driven tooltips (see
+  // attachAllocTooltips).
   const baseColors = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
   const lightColors = ['#B8A6FA', '#7EEBFB', '#FFD75E', '#7EF0C4'];
-  const cx = 50, cy = 50, r = 37, strokeW = 13;
-  const circumference = 2 * Math.PI * r;
-  const gapPx = 2.5;
+  const cx = 50, cy = 50, r = 45;
   const gradPrefix = `allocGrad-${svgEl.id}`;
 
-  let offset = 0;
+  let startAngle = -90;
   let defsHtml = '';
   let segHtml = '';
   let labelHtml = '';
@@ -3657,34 +3655,36 @@ function drawPieChart(svgEl, data) {
   data.forEach((item, i) => {
     const pct = item.pct || 0;
     if (pct <= 0) return;
-    const rawLen = (pct / 100) * circumference;
-    const segLen = Math.max(0, rawLen - gapPx);
-    const dashArray = `${segLen.toFixed(2)} ${(circumference - segLen).toFixed(2)}`;
-    const dashOffset = (-offset).toFixed(2);
+    const angle = (pct / 100) * 360;
+    const endAngle = startAngle + angle;
+    const isLarge = angle > 180 ? 1 : 0;
     const gradId = `${gradPrefix}-${i}`;
+
+    const rad = (a) => (a * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(rad(startAngle)), y1 = cy + r * Math.sin(rad(startAngle));
+    const x2 = cx + r * Math.cos(rad(endAngle)), y2 = cy + r * Math.sin(rad(endAngle));
 
     defsHtml += `<linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${lightColors[i % lightColors.length]}"/>
       <stop offset="100%" stop-color="${baseColors[i % baseColors.length]}"/>
     </linearGradient>`;
 
-    segHtml += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#${gradId})" stroke-width="${strokeW}" stroke-linecap="round" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" transform="rotate(-90 ${cx} ${cy})" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
+    const d = `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${isLarge} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+
+    segHtml += `<path d="${d}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1.5" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
 
     if (pct >= 8) {
-      const midFrac = (offset + rawLen / 2) / circumference;
-      const midDeg = -90 + midFrac * 360;
-      const midRad = (midDeg * Math.PI) / 180;
-      const lx = cx + r * Math.cos(midRad);
-      const ly = cy + r * Math.sin(midRad);
+      const midRad = rad((startAngle + endAngle) / 2);
+      const lr = r * 0.62;
+      const lx = cx + lr * Math.cos(midRad);
+      const ly = cy + lr * Math.sin(midRad);
       labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
     }
 
-    offset += rawLen;
+    startAngle = endAngle;
   });
 
-  const track = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="${strokeW}"/>`;
-
-  svgEl.innerHTML = `<defs>${defsHtml}</defs>${track}${segHtml}${labelHtml}`;
+  svgEl.innerHTML = `<defs>${defsHtml}</defs>${segHtml}${labelHtml}`;
   attachAllocTooltips(svgEl);
 }
 

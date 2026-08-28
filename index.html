@@ -3782,7 +3782,6 @@ function drawTreemap(svgEl, data) {
   // corners, and a name + percentage label that scales down (or drops off)
   // once a tile gets too small to hold it.
   const W = 100, H = 62, pad = 0.9;
-  const gradPrefix = `allocGrad-${svgEl.id}`;
 
   const items = data
     .filter((d) => (d.pct || 0) > 0)
@@ -3794,26 +3793,18 @@ function drawTreemap(svgEl, data) {
   const indexOf = {};
   data.forEach((d, i) => { indexOf[d.name] = i; });
 
-  let defsHtml = '';
   let tileHtml = '';
   let labelHtml = '';
 
   tiles.forEach((t) => {
     const i = indexOf[t.name];
     const base = assetColor(t.name, i, 'base');
-    const light = assetColor(t.name, i, 'light');
     const rx = t.x + pad, ry = t.y + pad;
     const rw = Math.max(t.w - pad * 2, 0.5);
     const rh = Math.max(t.h - pad * 2, 0.5);
     const cornerR = Math.min(2.2, rw / 2, rh / 2);
 
-    const gradId = `${gradPrefix}-${i}`;
-    defsHtml += `<linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${light}"/>
-      <stop offset="100%" stop-color="${base}"/>
-    </linearGradient>`;
-
-    tileHtml += `<rect x="${rx.toFixed(2)}" y="${ry.toFixed(2)}" width="${rw.toFixed(2)}" height="${rh.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="url(#${gradId})" stroke="rgba(10,11,20,0.55)" stroke-width="0.6" class="alloc-seg" data-tooltip="${t.name} — ${fmtUSD(t.val)} (${t.pct.toFixed(1)}%)"/>`;
+    tileHtml += `<rect x="${rx.toFixed(2)}" y="${ry.toFixed(2)}" width="${rw.toFixed(2)}" height="${rh.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="${base}" stroke="rgba(10,11,20,0.55)" stroke-width="0.6" class="alloc-seg" data-tooltip="${t.name} — ${fmtUSD(t.val)} (${t.pct.toFixed(1)}%)"/>`;
 
     const cx = rx + rw / 2, cy = ry + rh / 2;
     // Shrink the name's font until its estimated rendered width fits the
@@ -3829,14 +3820,14 @@ function drawTreemap(svgEl, data) {
     const canFitTwoLines = nameFits && rw >= 12 && rh >= 12;
     const canFitOneLine = rw >= 8 && rh >= 6.5;
     if (canFitTwoLines) {
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy - 3.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize.toFixed(1)}" font-weight="600" fill="rgba(10,11,20,0.75)" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${t.name}</text>`;
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy + 4.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy - 3.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize.toFixed(1)}" font-weight="600" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${t.name}</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy + 4.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
     } else if (canFitOneLine) {
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="6.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="6.5" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
     }
   });
 
-  svgEl.innerHTML = `<defs>${defsHtml}</defs>${tileHtml}${labelHtml}`;
+  svgEl.innerHTML = `${tileHtml}${labelHtml}`;
   attachAllocTooltips(svgEl);
 }
 

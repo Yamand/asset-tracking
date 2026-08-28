@@ -203,7 +203,27 @@
     margin:0 0 8px;
     font-weight:400;
   }
-  .alloc-pie{width:220px;max-width:100%;height:auto;display:block;margin:2px auto 12px;overflow:visible;}
+  .alloc-pie{width:220px;max-width:100%;height:auto;display:block;margin:2px auto 12px;overflow:visible;filter:drop-shadow(0 0 20px rgba(139,92,246,0.14));}
+  .alloc-seg{cursor:pointer;transition:opacity .15s ease;}
+  .alloc-seg:hover{opacity:0.75!important;}
+  .alloc-tooltip{
+    position:fixed;
+    z-index:9999;
+    pointer-events:none;
+    background:var(--bg-panel);
+    backdrop-filter:blur(20px) saturate(150%);
+    -webkit-backdrop-filter:blur(20px) saturate(150%);
+    border:1px solid var(--hair-bright);
+    border-radius:8px;
+    padding:7px 11px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--ink);
+    white-space:nowrap;
+    box-shadow:0 8px 24px rgba(0,0,0,0.45);
+    opacity:0;
+    transition:opacity .12s ease;
+  }
   .alloc-list{list-style:none;margin:0;padding:0;width:100%;}
   .alloc-item{
     display:flex;
@@ -3618,16 +3638,19 @@ function saveTargetAllocation(targets) {
   localStorage.setItem('__alloc-targets-version', TARGETS_VERSION);
 }
 
-function drawPieChart(svgEl, data, centerLabel) {
+function drawPieChart(svgEl, data) {
   // Donut built the same way as the DCA gauge arcs: a faint background track,
-  // rounded-cap stroke segments (not filled pie wedges), small gaps between
-  // segments, and center readout text in the same mono typography.
-  const colors = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
+  // rounded-cap stroke segments with a subtle gradient sheen for depth, small
+  // gaps between segments, and hover-driven tooltips (see attachAllocTooltips).
+  const baseColors = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
+  const lightColors = ['#B8A6FA', '#7EEBFB', '#FFD75E', '#7EF0C4'];
   const cx = 50, cy = 50, r = 37, strokeW = 13;
   const circumference = 2 * Math.PI * r;
   const gapPx = 2.5;
+  const gradPrefix = `allocGrad-${svgEl.id}`;
 
   let offset = 0;
+  let defsHtml = '';
   let segHtml = '';
   let labelHtml = '';
 
@@ -3638,8 +3661,14 @@ function drawPieChart(svgEl, data, centerLabel) {
     const segLen = Math.max(0, rawLen - gapPx);
     const dashArray = `${segLen.toFixed(2)} ${(circumference - segLen).toFixed(2)}`;
     const dashOffset = (-offset).toFixed(2);
+    const gradId = `${gradPrefix}-${i}`;
 
-    segHtml += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colors[i % colors.length]}" stroke-width="${strokeW}" stroke-linecap="round" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" transform="rotate(-90 ${cx} ${cy})" opacity="0.94"><title>${item.name}: ${pct.toFixed(1)}%</title></circle>`;
+    defsHtml += `<linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${lightColors[i % lightColors.length]}"/>
+      <stop offset="100%" stop-color="${baseColors[i % baseColors.length]}"/>
+    </linearGradient>`;
+
+    segHtml += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#${gradId})" stroke-width="${strokeW}" stroke-linecap="round" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" transform="rotate(-90 ${cx} ${cy})" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
 
     if (pct >= 8) {
       const midFrac = (offset + rawLen / 2) / circumference;
@@ -3647,7 +3676,7 @@ function drawPieChart(svgEl, data, centerLabel) {
       const midRad = (midDeg * Math.PI) / 180;
       const lx = cx + r * Math.cos(midRad);
       const ly = cy + r * Math.sin(midRad);
-      labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace">${Math.round(pct)}%</text>`;
+      labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
     }
 
     offset += rawLen;
@@ -3655,11 +3684,45 @@ function drawPieChart(svgEl, data, centerLabel) {
 
   const track = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="${strokeW}"/>`;
 
-  const centerHtml = centerLabel ? `
-    <text x="${cx}" y="${cy - 3}" text-anchor="middle" dominant-baseline="middle" font-size="10.5" font-weight="700" fill="#F1F3FA" font-family="IBM Plex Mono, monospace">${centerLabel}</text>
-    <text x="${cx}" y="${cy + 9}" text-anchor="middle" dominant-baseline="middle" font-size="5.5" letter-spacing="0.06em" fill="#5A6178" font-family="IBM Plex Mono, monospace">TOTAL</text>` : '';
+  svgEl.innerHTML = `<defs>${defsHtml}</defs>${track}${segHtml}${labelHtml}`;
+  attachAllocTooltips(svgEl);
+}
 
-  svgEl.innerHTML = track + segHtml + labelHtml + centerHtml;
+function getAllocTooltipEl() {
+  let el = document.getElementById('alloc-tooltip');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'alloc-tooltip';
+    el.className = 'alloc-tooltip';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function positionAllocTooltip(evt) {
+  const el = getAllocTooltipEl();
+  const pad = 14;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  const rect = el.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth - 8) x = evt.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 8) y = evt.clientY - rect.height - pad;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+}
+
+function attachAllocTooltips(svgEl) {
+  svgEl.querySelectorAll('.alloc-seg').forEach((seg) => {
+    seg.addEventListener('mouseenter', (e) => {
+      const el = getAllocTooltipEl();
+      el.textContent = seg.dataset.tooltip;
+      el.style.opacity = '1';
+      positionAllocTooltip(e);
+    });
+    seg.addEventListener('mousemove', positionAllocTooltip);
+    seg.addEventListener('mouseleave', () => {
+      getAllocTooltipEl().style.opacity = '0';
+    });
+  });
 }
 
 function renderAllocationUI(savings, summary) {
@@ -3686,7 +3749,7 @@ function renderAllocationUI(savings, summary) {
   
   // Render current allocation
   const currentData = Object.entries(current).map(([name, data]) => ({ name, pct: data.pct, val: data.val }));
-  drawPieChart(document.getElementById('alloc-pie-current'), currentData, fmtUSD(total));
+  drawPieChart(document.getElementById('alloc-pie-current'), currentData);
   
   const currentList = document.getElementById('alloc-list-current');
   currentList.innerHTML = currentData.map((d, i) => `
@@ -3700,7 +3763,7 @@ function renderAllocationUI(savings, summary) {
   
   // Render target allocation
   const targetData = Object.entries(targets).map(([name, pct]) => ({ name, pct, val: (pct / 100) * total }));
-  drawPieChart(document.getElementById('alloc-pie-target'), targetData, fmtUSD(total));
+  drawPieChart(document.getElementById('alloc-pie-target'), targetData);
   
   const targetList = document.getElementById('alloc-list-target');
   targetList.innerHTML = targetData.map((d, i) => `

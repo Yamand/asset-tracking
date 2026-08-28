@@ -3588,23 +3588,34 @@ async function loadTab(key, label, parser, timeoutMs, range) {
 
 // Default target allocations (stored in localStorage)
 const DEFAULT_TARGETS = {
-  'Cash': 30,
-  'BTC': 35,
-  'XAUT': 35
+  'Cash': 20,
+  'BTC': 50,
+  'Gold': 15,
+  'Stablecoin': 15
 };
 
+const TARGETS_VERSION = 'v2-20-50-15-15';
+
 function loadTargetAllocation() {
+  const storedVersion = localStorage.getItem('__alloc-targets-version');
   const stored = localStorage.getItem('__alloc-targets');
-  return stored ? JSON.parse(stored) : DEFAULT_TARGETS;
+  if (!stored || storedVersion !== TARGETS_VERSION) return DEFAULT_TARGETS;
+  const parsed = JSON.parse(stored);
+  // Migration: if stored targets don't match the current asset set (e.g. old 3-asset
+  // version without Stablecoin), fall back to defaults rather than showing NaN/missing rows.
+  const sameKeys = Object.keys(DEFAULT_TARGETS).every((k) => k in parsed)
+    && Object.keys(parsed).every((k) => k in DEFAULT_TARGETS);
+  return sameKeys ? parsed : DEFAULT_TARGETS;
 }
 
 function saveTargetAllocation(targets) {
   localStorage.setItem('__alloc-targets', JSON.stringify(targets));
+  localStorage.setItem('__alloc-targets-version', TARGETS_VERSION);
 }
 
 function drawPieChart(svgEl, data) {
   // Simple pie chart using SVG
-  const colors = ['#8B5CF6', '#22D3EE', '#34D399'];
+  const colors = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
   let startAngle = -90;
   let html = '';
   
@@ -3621,7 +3632,7 @@ function drawPieChart(svgEl, data) {
     const y2 = 50 + 45 * Math.sin(endRad);
     
     const d = `M 50 50 L ${x1} ${y1} A 45 45 0 ${isLarge} 1 ${x2} ${y2} Z`;
-    html += `<path d="${d}" fill="${colors[i % 3]}" opacity="0.8"/><title>${item.name}: ${item.pct.toFixed(1)}%</title>`;
+    html += `<path d="${d}" fill="${colors[i % colors.length]}" opacity="0.8"/><title>${item.name}: ${item.pct.toFixed(1)}%</title>`;
     
     startAngle = endAngle;
   });
@@ -3632,28 +3643,33 @@ function drawPieChart(svgEl, data) {
 function renderAllocationUI(savings, summary) {
   const targets = loadTargetAllocation();
   const total = savings.totalNetSavings || 1;
+  const palette = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
   
   // Current allocation
   const current = {
     'Cash': { val: savings.cashSubtotal || 0, pct: ((savings.cashSubtotal || 0) / total) * 100 },
     'BTC': { val: 0, pct: 0 },
-    'XAUT': { val: 0, pct: 0 }
+    'Gold': { val: 0, pct: 0 },
+    'Stablecoin': { val: 0, pct: 0 }
   };
   
-  // Extract BTC and XAUT from summary
+  // Extract BTC and XAUT (Gold) from summary
   (summary.assets || []).forEach((a) => {
-    if (a.asset === 'BTC') current['BTC'] = { val: a.totalUSD, pct: (a.totalUSD / total) * 100 };
-    if (a.asset === 'XAUT') current['XAUT'] = { val: a.totalUSD, pct: (a.totalUSD / total) * 100 };
+    if (a.asset === 'BTC') current['BTC'] = { val: a.marketValue || 0, pct: ((a.marketValue || 0) / total) * 100 };
+    if (a.asset === 'XAUT') current['Gold'] = { val: a.marketValue || 0, pct: ((a.marketValue || 0) / total) * 100 };
   });
+  // Extract Stablecoin (USDT) from savings.okx
+  const usdtVal = savings.okx ? (savings.okx['USDT'] || 0) : 0;
+  current['Stablecoin'] = { val: usdtVal, pct: (usdtVal / total) * 100 };
   
   // Render current allocation
   const currentData = Object.entries(current).map(([name, data]) => ({ name, pct: data.pct, val: data.val }));
   drawPieChart(document.getElementById('alloc-pie-current'), currentData);
   
   const currentList = document.getElementById('alloc-list-current');
-  currentList.innerHTML = currentData.map((d) => `
+  currentList.innerHTML = currentData.map((d, i) => `
     <li class="alloc-item">
-      <div class="alloc-dot" style="background:${['#8B5CF6', '#22D3EE', '#34D399'][currentData.indexOf(d)] || '#fff'}"></div>
+      <div class="alloc-dot" style="background:${palette[i % palette.length]}"></div>
       <div class="alloc-item-name">${d.name}</div>
       <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
       <div class="alloc-item-val">${fmtUSD(d.val)}</div>
@@ -3665,9 +3681,9 @@ function renderAllocationUI(savings, summary) {
   drawPieChart(document.getElementById('alloc-pie-target'), targetData);
   
   const targetList = document.getElementById('alloc-list-target');
-  targetList.innerHTML = targetData.map((d) => `
+  targetList.innerHTML = targetData.map((d, i) => `
     <li class="alloc-item">
-      <div class="alloc-dot" style="background:${['#8B5CF6', '#22D3EE', '#34D399'][targetData.indexOf(d)] || '#fff'}"></div>
+      <div class="alloc-dot" style="background:${palette[i % palette.length]}"></div>
       <div class="alloc-item-name">${d.name}</div>
       <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
       <div class="alloc-item-val">${fmtUSD(d.val)}</div>
@@ -3676,13 +3692,11 @@ function renderAllocationUI(savings, summary) {
   
   // Rebalancing recommendations
   const rebalActions = [];
-  let totalDrift = 0;
   
   Object.keys(targets).forEach((asset) => {
     const target = targets[asset];
     const actual = current[asset]?.pct || 0;
     const drift = actual - target;
-    totalDrift += Math.abs(drift);
     
     if (Math.abs(drift) > 2) {  // Only show drifts > 2%
       const driftVal = (drift / 100) * total;
@@ -3706,13 +3720,14 @@ function renderAllocationUI(savings, summary) {
     `).join('');
   }
   
-  // Edit targets button
-  document.getElementById('alloc-edit-targets').addEventListener('click', () => {
+  // Edit targets button (assign via onclick, not addEventListener, so re-renders
+  // don't stack duplicate handlers on the same button)
+  document.getElementById('alloc-edit-targets').onclick = () => {
     const newTargets = {};
     let totalTarget = 0;
     
     Object.keys(targets).forEach((asset) => {
-      const newVal = prompt(`Target allocation for ${asset} (%)`, targets[asset]);
+      const newVal = prompt(`Target allocation for ${asset} (%)`, targets[asset].toFixed(1));
       if (newVal !== null) {
         const pct = Math.max(0, Math.min(100, parseFloat(newVal) || 0));
         newTargets[asset] = pct;
@@ -3728,7 +3743,7 @@ function renderAllocationUI(savings, summary) {
       saveTargetAllocation(newTargets);
       renderAllocationUI(savings, summary);  // Re-render with new targets
     }
-  });
+  };
 }
 
 async function loadAll() {

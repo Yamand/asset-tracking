@@ -3638,6 +3638,22 @@ function saveTargetAllocation(targets) {
   localStorage.setItem('__alloc-targets-version', TARGETS_VERSION);
 }
 
+// Single source of truth for allocation colors, keyed by asset name so the
+// chart and legend can never drift apart. Roughly follows each asset's own
+// brand color rather than an arbitrary palette cycling by array position.
+const ASSET_COLOR_MAP = {
+  'Cash': { base: '#8B5CF6', light: '#B8A6FA' },       // violet — dashboard accent
+  'BTC': { base: '#F7931A', light: '#FFC168' },        // Bitcoin orange
+  'Gold': { base: '#F0B93B', light: '#FFDE8A' },       // amber/gold
+  'Stablecoin': { base: '#26A17B', light: '#6FE0BC' }, // Tether/USDT green
+};
+const FALLBACK_PALETTE = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
+function assetColor(name, i, variant) {
+  const c = ASSET_COLOR_MAP[name];
+  if (c) return c[variant];
+  return FALLBACK_PALETTE[i % FALLBACK_PALETTE.length];
+}
+
 function shadeColor(hex, percent) {
   // percent negative = darker, positive = lighter
   const f = parseInt(hex.slice(1), 16), t = percent < 0 ? 0 : 255, p = Math.abs(percent) / 100;
@@ -3656,14 +3672,14 @@ function sectorPath(cx, cy, rx, ry, startAngle, endAngle) {
 }
 
 function drawPieChart(svgEl, data) {
-  // 3D extruded pie: tilt the pie into an ellipse, draw a darker-shaded copy
-  // shifted straight down underneath (the "side wall"), then draw the full
-  // color top face on top. Since the top face fully covers the shifted copy
-  // except where it pokes out past the bottom rim, this reads as a cylinder
-  // side without any per-angle visibility math.
-  const baseColors = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
-  const lightColors = ['#B8A6FA', '#7EEBFB', '#FFD75E', '#7EF0C4'];
-  const cx = 50, cy = 34, rx = 44, ry = 24, depth = 13;
+  // 3D extruded pie: tilt the pie into an ellipse, draw a shaded copy shifted
+  // straight down underneath (the "side wall", using a per-wedge vertical
+  // gradient so it reads as a curved surface catching less light toward the
+  // bottom rather than a flat dark block), then draw the full color top face
+  // on top. Since the top face fully covers the shifted copy except where it
+  // pokes out past the bottom rim, this reads as a cylinder side without any
+  // per-angle visibility math.
+  const cx = 50, cy = 34, rx = 44, ry = 24, depth = 15;
   const gradPrefix = `allocGrad-${svgEl.id}`;
 
   // Precompute each wedge's angle range once, shared by side + top passes.
@@ -3676,26 +3692,37 @@ function drawPieChart(svgEl, data) {
     return w;
   }).filter((w) => w.pct > 0);
 
-  // Side wall: darker-shaded full sectors, shifted down by `depth`.
+  // Side wall: per-wedge vertical gradient (lighter near the rim, darker at
+  // the bottom) instead of one flat shade, so adjacent sectors blend into a
+  // continuous curved wall rather than looking like cut-out flat pieces.
+  let defsHtml = '';
   let sideHtml = '';
   wedges.forEach((w) => {
-    const dark = shadeColor(baseColors[w.i % baseColors.length], -38);
-    sideHtml += `<path d="${sectorPath(cx, cy + depth, rx, ry, w.start, w.end)}" fill="${dark}" stroke="${dark}" stroke-width="0.5"/>`;
+    const base = assetColor(w.item.name, w.i, 'base');
+    const sideGradId = `${gradPrefix}-side-${w.i}`;
+    const topShade = shadeColor(base, -18);
+    const botShade = shadeColor(base, -55);
+    defsHtml += `<linearGradient id="${sideGradId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${topShade}"/>
+      <stop offset="100%" stop-color="${botShade}"/>
+    </linearGradient>`;
+    sideHtml += `<path d="${sectorPath(cx, cy + depth, rx, ry, w.start, w.end)}" fill="url(#${sideGradId})" stroke="${botShade}" stroke-width="0.4" stroke-linejoin="round"/>`;
   });
 
   // Top face: gradient sectors + labels + tooltip targets.
-  let defsHtml = '';
   let topHtml = '';
   let labelHtml = '';
   wedges.forEach((w) => {
     const { item, i, pct, start, end } = w;
+    const base = assetColor(item.name, i, 'base');
+    const light = assetColor(item.name, i, 'light');
     const gradId = `${gradPrefix}-${i}`;
     defsHtml += `<linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${lightColors[i % lightColors.length]}"/>
-      <stop offset="100%" stop-color="${baseColors[i % baseColors.length]}"/>
+      <stop offset="0%" stop-color="${light}"/>
+      <stop offset="100%" stop-color="${base}"/>
     </linearGradient>`;
 
-    topHtml += `<path d="${sectorPath(cx, cy, rx, ry, start, end)}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1.2" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
+    topHtml += `<path d="${sectorPath(cx, cy, rx, ry, start, end)}" fill="url(#${gradId})" stroke="#0A0B14" stroke-width="1" stroke-linejoin="round" class="alloc-seg" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
 
     if (pct >= 8) {
       const midRad = ((start + end) / 2) * Math.PI / 180;
@@ -3705,7 +3732,11 @@ function drawPieChart(svgEl, data) {
     }
   });
 
-  svgEl.innerHTML = `<defs>${defsHtml}</defs>${sideHtml}${topHtml}${labelHtml}`;
+  // Thin glossy rim highlight along the top surface boundary, reinforcing
+  // the sense of a curved lid rather than a flat cut-out disc.
+  const rimHtml = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="0.8" style="pointer-events:none;"/>`;
+
+  svgEl.innerHTML = `<defs>${defsHtml}</defs>${sideHtml}${topHtml}${rimHtml}${labelHtml}`;
   attachAllocTooltips(svgEl);
 }
 
@@ -3749,7 +3780,6 @@ function attachAllocTooltips(svgEl) {
 function renderAllocationUI(savings, summary) {
   const targets = loadTargetAllocation();
   const total = savings.totalNetSavings || 1;
-  const palette = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
   
   // Current allocation
   const current = {
@@ -3775,7 +3805,7 @@ function renderAllocationUI(savings, summary) {
   const currentList = document.getElementById('alloc-list-current');
   currentList.innerHTML = currentData.map((d, i) => `
     <li class="alloc-item">
-      <div class="alloc-dot" style="background:${palette[i % palette.length]}"></div>
+      <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
       <div class="alloc-item-name">${d.name}</div>
       <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
       <div class="alloc-item-val">${fmtUSD(d.val)}</div>
@@ -3789,7 +3819,7 @@ function renderAllocationUI(savings, summary) {
   const targetList = document.getElementById('alloc-list-target');
   targetList.innerHTML = targetData.map((d, i) => `
     <li class="alloc-item">
-      <div class="alloc-dot" style="background:${palette[i % palette.length]}"></div>
+      <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
       <div class="alloc-item-name">${d.name}</div>
       <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
       <div class="alloc-item-val">${fmtUSD(d.val)}</div>

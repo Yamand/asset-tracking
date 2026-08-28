@@ -203,7 +203,7 @@
     margin:0 0 8px;
     font-weight:400;
   }
-  .alloc-pie{width:258px;max-width:100%;height:auto;display:block;margin:2px auto 14px;overflow:visible;filter:drop-shadow(0 12px 28px rgba(0,0,0,0.45));}
+  .alloc-treemap{width:100%;max-width:340px;height:auto;display:block;margin:2px auto 14px;overflow:visible;filter:drop-shadow(0 12px 28px rgba(0,0,0,0.45));}
   .alloc-seg{
     cursor:pointer;
     transform-box:fill-box;
@@ -211,8 +211,8 @@
     transition:transform .22s cubic-bezier(.2,.8,.2,1), filter .22s ease;
   }
   .alloc-seg:hover{
-    transform:scale(1.045);
-    filter:brightness(1.12) drop-shadow(0 3px 10px rgba(0,0,0,0.5));
+    transform:scale(0.975);
+    filter:brightness(1.14) drop-shadow(0 3px 10px rgba(0,0,0,0.5));
   }
   .alloc-tooltip{
     position:fixed;
@@ -1071,7 +1071,7 @@
         <div class="alloc-grid">
           <div class="alloc-card">
             <h3>Current Allocation</h3>
-            <svg class="alloc-pie" id="alloc-pie-current" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
             <ul class="alloc-list" id="alloc-list-current"></ul>
           </div>
           <div class="alloc-card">
@@ -3718,74 +3718,125 @@ function sectorPath(cx, cy, rx, ry, startAngle, endAngle) {
   return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${rx} ${ry} 0 ${isLarge} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
 }
 
-function drawPieChart(svgEl, data) {
-  // Modern "separated petal" pie: each slice sits on a thin gap from its
-  // neighbors, is nudged outward along its own mid-angle, gets a glossy
-  // radial-gradient fill (highlight near the outer edge, like light
-  // catching a curved glass surface), and lifts on hover. No ring/donut
-  // hole — slices are still fully filled, just visually separated instead
-  // of butted edge-to-edge like a plain flat pie.
-  const cx = 50, cy = 50, r = 45, gapDeg = 2.2, explode = 3.2;
+function squarify(items, x0, y0, w0, h0) {
+  // Standard squarified-treemap layout (Bruls/Huizing/van Wijk): recursively
+  // slices the rectangle into rows/columns chosen to keep each tile's aspect
+  // ratio as close to square as possible, rather than plain proportional strips.
+  const totalValue = items.reduce((s, d) => s + d.value, 0) || 1;
+  const totalArea = w0 * h0;
+  const nodes = items.map((d) => ({ ...d, area: (d.value / totalValue) * totalArea }));
+  const results = [];
+
+  function worst(row, len) {
+    let sum = 0, max = -Infinity, min = Infinity;
+    row.forEach((r) => { sum += r.area; if (r.area > max) max = r.area; if (r.area < min) min = r.area; });
+    const s2 = sum * sum, l2 = len * len;
+    return Math.max((l2 * max) / s2, s2 / (l2 * min));
+  }
+
+  function layout(list, x, y, w, h) {
+    if (!list.length) return;
+    if (list.length === 1 || w <= 0 || h <= 0) {
+      results.push({ ...list[0], x, y, w: Math.max(w, 0), h: Math.max(h, 0) });
+      return;
+    }
+    const shortSide = Math.min(w, h);
+    let row = [list[0]];
+    let rest = list.slice(1);
+    while (rest.length) {
+      const testRow = row.concat(rest[0]);
+      if (worst(testRow, shortSide) <= worst(row, shortSide)) {
+        row = testRow;
+        rest = rest.slice(1);
+      } else break;
+    }
+    const rowArea = row.reduce((s, r) => s + r.area, 0);
+    const rowThickness = rowArea / shortSide;
+
+    let offset = 0;
+    if (w >= h) {
+      row.forEach((r) => {
+        const itemH = r.area / rowThickness;
+        results.push({ ...r, x, y: y + offset, w: rowThickness, h: itemH });
+        offset += itemH;
+      });
+      layout(rest, x + rowThickness, y, w - rowThickness, h);
+    } else {
+      row.forEach((r) => {
+        const itemW = r.area / rowThickness;
+        results.push({ ...r, x: x + offset, y, w: itemW, h: rowThickness });
+        offset += itemW;
+      });
+      layout(rest, x, y + rowThickness, w, h - rowThickness);
+    }
+  }
+
+  layout(nodes, x0, y0, w0, h0);
+  return results;
+}
+
+function drawTreemap(svgEl, data) {
+  // Each asset becomes a rectangular tile sized by its share of the total —
+  // a glossy diagonal gradient fill (matches the rest of the dashboard's
+  // "light catching glass" style), a thin gap between tiles, rounded
+  // corners, and a name + percentage label that scales down (or drops off)
+  // once a tile gets too small to hold it.
+  const W = 100, H = 62, pad = 0.9;
   const gradPrefix = `allocGrad-${svgEl.id}`;
 
-  let angle = -90;
-  const wedges = data.map((item, i) => {
-    const pct = item.pct || 0;
-    const sweep = (pct / 100) * 360;
-    const w = { item, i, pct, start: angle, end: angle + sweep };
-    angle += sweep;
-    return w;
-  }).filter((w) => w.pct > 0);
+  const items = data
+    .filter((d) => (d.pct || 0) > 0)
+    .sort((a, b) => b.pct - a.pct)
+    .map((d) => ({ ...d, value: d.pct }));
 
-  const singleSlice = wedges.length === 1;
+  const tiles = squarify(items, 0, 0, W, H);
+  // preserve original index (for stable color assignment) by name lookup
+  const indexOf = {};
+  data.forEach((d, i) => { indexOf[d.name] = i; });
 
   let defsHtml = '';
-  let sliceHtml = '';
+  let tileHtml = '';
   let labelHtml = '';
-  wedges.forEach((w) => {
-    const { item, i, pct, start, end } = w;
-    const base = assetColor(item.name, i, 'base');
-    const light = assetColor(item.name, i, 'light');
-    const mid = (start + end) / 2;
-    const midRad = mid * Math.PI / 180;
-    const dx = Math.cos(midRad) * explode;
-    const dy = Math.sin(midRad) * explode;
 
-    // small angular gap between neighbors (skipped for a single 100% slice)
-    const g = singleSlice ? 0 : gapDeg / 2;
-    const path = singleSlice
-      ? `M ${cx} ${cy} m -${r} 0 a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 -${r * 2} 0 Z`
-      : sectorPath(cx, cy, r, r, start + g, end - g);
+  tiles.forEach((t) => {
+    const i = indexOf[t.name];
+    const base = assetColor(t.name, i, 'base');
+    const light = assetColor(t.name, i, 'light');
+    const rx = t.x + pad, ry = t.y + pad;
+    const rw = Math.max(t.w - pad * 2, 0.5);
+    const rh = Math.max(t.h - pad * 2, 0.5);
+    const cornerR = Math.min(2.2, rw / 2, rh / 2);
 
-    // glossy radial highlight offset toward the slice's outer mid-angle
     const gradId = `${gradPrefix}-${i}`;
-    const hlx = 50 + Math.cos(midRad) * 28;
-    const hly = 50 + Math.sin(midRad) * 28;
-    defsHtml += `<radialGradient id="${gradId}" cx="${hlx}%" cy="${hly}%" r="75%">
+    defsHtml += `<linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${light}"/>
       <stop offset="100%" stop-color="${base}"/>
-    </radialGradient>`;
+    </linearGradient>`;
 
-    sliceHtml += `<path d="${path}" fill="url(#${gradId})" stroke="rgba(10,11,20,0.55)" stroke-width="0.8" stroke-linejoin="round" class="alloc-seg" transform="translate(${dx.toFixed(2)} ${dy.toFixed(2)})" data-tooltip="${item.name} — ${fmtUSD(item.val)} (${pct.toFixed(1)}%)"/>`;
+    tileHtml += `<rect x="${rx.toFixed(2)}" y="${ry.toFixed(2)}" width="${rw.toFixed(2)}" height="${rh.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="url(#${gradId})" stroke="rgba(10,11,20,0.55)" stroke-width="0.6" class="alloc-seg" data-tooltip="${t.name} — ${fmtUSD(t.val)} (${t.pct.toFixed(1)}%)"/>`;
 
-    if (pct >= 6) {
-      const lx = cx + dx + r * 0.62 * Math.cos(midRad);
-      const ly = cy + dy + r * 0.62 * Math.sin(midRad);
-      if (pct >= 10) {
-        // roomy slice: asset name on its own line above the percentage.
-        // Name font shrinks with length so long labels (e.g. "Stablecoin")
-        // still fit the slice width instead of overflowing it.
-        const nameFontSize = item.name.length > 9 ? 3.3 : item.name.length > 6 ? 3.9 : 4.5;
-        labelHtml += `<text x="${lx.toFixed(1)}" y="${(ly - 4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize}" font-weight="600" letter-spacing="0" fill="rgba(10,11,20,0.75)" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${item.name}</text>`;
-        labelHtml += `<text x="${lx.toFixed(1)}" y="${(ly + 4.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
-      } else {
-        // tight slice: percentage only, no room for a second line
-        labelHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(pct)}%</text>`;
-      }
+    const cx = rx + rw / 2, cy = ry + rh / 2;
+    // Shrink the name's font until its estimated rendered width fits the
+    // tile (with a small margin); drop to percentage-only, then nothing,
+    // once even a small name label won't fit.
+    const innerW = rw - 2; // small inline margin
+    let nameFontSize = t.name.length > 9 ? 3.3 : t.name.length > 6 ? 3.9 : 4.5;
+    const CHAR_W = 0.62; // approx width-per-em for this mono font, uppercase
+    while (nameFontSize > 2.4 && t.name.length * nameFontSize * CHAR_W > innerW) {
+      nameFontSize -= 0.2;
+    }
+    const nameFits = t.name.length * nameFontSize * CHAR_W <= innerW;
+    const canFitTwoLines = nameFits && rw >= 12 && rh >= 12;
+    const canFitOneLine = rw >= 8 && rh >= 6.5;
+    if (canFitTwoLines) {
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy - 3.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize.toFixed(1)}" font-weight="600" fill="rgba(10,11,20,0.75)" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${t.name}</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy + 4.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
+    } else if (canFitOneLine) {
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="6.5" font-weight="700" fill="#0A0B14" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
     }
   });
 
-  svgEl.innerHTML = `<defs>${defsHtml}</defs>${sliceHtml}${labelHtml}`;
+  svgEl.innerHTML = `<defs>${defsHtml}</defs>${tileHtml}${labelHtml}`;
   attachAllocTooltips(svgEl);
 }
 
@@ -3849,7 +3900,7 @@ function renderAllocationUI(savings, summary) {
   
   // Render current allocation
   const currentData = Object.entries(current).map(([name, data]) => ({ name, pct: data.pct, val: data.val }));
-  drawPieChart(document.getElementById('alloc-pie-current'), currentData);
+  drawTreemap(document.getElementById('alloc-treemap-current'), currentData);
   
   const currentList = document.getElementById('alloc-list-current');
   currentList.innerHTML = currentData.map((d, i) => `

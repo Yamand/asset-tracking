@@ -3821,9 +3821,9 @@ function drawTreemap(svgEl, data) {
     const canFitOneLine = rw >= 8 && rh >= 6.5;
     if (canFitTwoLines) {
       labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy - 3.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize.toFixed(1)}" font-weight="600" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${t.name}</text>`;
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy + 4.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${t.pct.toFixed(1)}%</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy + 4.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
     } else if (canFitOneLine) {
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="6.5" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${t.pct.toFixed(1)}%</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="6.5" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
     }
   });
 

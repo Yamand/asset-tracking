@@ -182,6 +182,9 @@
 
   /* ---------- asset allocation ---------- */
   .alloc-section{margin-bottom:34px;}
+  .alloc-sell-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+  @media (max-width:900px){.alloc-sell-row{grid-template-columns:1fr;}}
+  .alloc-sell-row .alloc-grid{max-width:none;margin-bottom:0;}
   .alloc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:20px;max-width:460px;}
   .alloc-card{
     border:1px solid var(--hair-bright);
@@ -691,6 +694,12 @@
   .nb-amount.tier-hold{color:var(--accent2);}
   .nb-amount.tier-sell{color:var(--loss);}
 
+  .ss-rows{display:flex;flex-direction:column;gap:6px;margin-top:12px;border-top:1px solid var(--hair);padding-top:10px;}
+  .ss-row{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:8px;font-family:var(--mono);font-size:12px;}
+  .ss-row-asset{color:var(--ink-dim);font-weight:700;letter-spacing:.04em;}
+  .ss-row-sub{color:var(--ink-faint);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ss-row-amt{font-weight:700;white-space:nowrap;text-align:right;}
+
   .monthly-balance-row{margin-bottom:26px;}
   .monthly-balance-row .fin-panel{padding:16px 18px;}
   .mb-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;}
@@ -994,18 +1003,21 @@
       </div>
 
       <!-- Asset Allocation Section -->
-      <div class="alloc-section">
-        <div class="sheet-head">
-          <span class="tag">AA</span>
-          <h2>Asset Allocation</h2>
-        </div>
-        <div class="alloc-grid">
-          <div class="alloc-card">
-            <h3>Current Allocation</h3>
-            <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
-            <ul class="alloc-list" id="alloc-list-current"></ul>
+      <div class="alloc-sell-row">
+        <div class="alloc-section">
+          <div class="sheet-head">
+            <span class="tag">AA</span>
+            <h2>Asset Allocation</h2>
+          </div>
+          <div class="alloc-grid">
+            <div class="alloc-card">
+              <h3>Current Allocation</h3>
+              <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
+              <ul class="alloc-list" id="alloc-list-current"></ul>
+            </div>
           </div>
         </div>
+        <div class="fin-panel" id="sell-summary-panel-overview" tabindex="0" role="button" aria-haspopup="dialog" style="display:none;align-self:start;"></div>
       </div>
     </div>
 
@@ -2588,37 +2600,37 @@ function openNextBuyModal() {
 /* =========================================================================
    SELL SUMMARY PANEL — units sold, realized P&L, and sell activity per
    asset. Hidden entirely until at least one sell exists in the log.
+   Renders into every panel id passed in, so the same data can appear in
+   both the Holdings tab and the Overview tab.
    ========================================================================= */
-function renderSellSummaryCard(trades) {
-  const panel = document.getElementById('sell-summary-panel');
-  if (!panel) return;
-
+function renderSellSummaryCard(trades, panelIds) {
   const sellSummary = computeSellSummary(trades);
   window.__sellSummaryDetails = sellSummary;
 
-  if (!sellSummary) { panel.style.display = 'none'; return; }
-  panel.style.display = '';
+  panelIds.forEach((id) => {
+    const panel = document.getElementById(id);
+    if (!panel) return;
 
-  const plColor = sellSummary.totalRealizedPL >= 0 ? 'var(--gain)' : 'var(--loss)';
-  const row = (a) => `
-    <div class="nb-row">
-      <div class="nb-asset-block">
-        <span class="nb-asset">${a.asset}</span>
-        <span class="nb-zone">${a.sellCount} sell${a.sellCount === 1 ? '' : 's'} · ${a.sellPctOfPortfolio != null ? (a.sellPctOfPortfolio * 100).toFixed(1) + '% of units bought' : '—'}</span>
+    if (!sellSummary) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+
+    const plColor = sellSummary.totalRealizedPL >= 0 ? 'var(--gain)' : 'var(--loss)';
+    const row = (a) => `
+      <div class="ss-row">
+        <span class="ss-row-asset">${a.asset}</span>
+        <span class="ss-row-sub">${a.sellCount} sell${a.sellCount === 1 ? '' : 's'} · ${a.sellPctOfPortfolio != null ? (a.sellPctOfPortfolio * 100).toFixed(1) + '% of units bought' : '—'}</span>
+        <span class="ss-row-amt" style="color:${a.realizedPL >= 0 ? 'var(--gain)' : 'var(--loss)'}">${fmtUSD(a.realizedPL)}</span>
+      </div>`;
+
+    panel.innerHTML = `
+      <div class="fp-label">Sell Summary</div>
+      <div class="fp-headline" style="color:${plColor}">${fmtUSD(sellSummary.totalRealizedPL)} realized</div>
+      <div class="fp-sub">${sellSummary.totalSellCount} sell${sellSummary.totalSellCount === 1 ? '' : 's'} across ${sellSummary.assets.length} asset${sellSummary.assets.length === 1 ? '' : 's'}</div>
+      <div class="ss-rows">
+        ${sellSummary.assets.map(row).join('')}
       </div>
-      <span class="nb-amount" style="color:${a.realizedPL >= 0 ? 'var(--gain)' : 'var(--loss)'}">${fmtUSD(a.realizedPL)}</span>
-    </div>`;
-
-  panel.innerHTML = `
-    <div class="nb-top">
-      <div class="fp-label" style="margin-bottom:0;">Sell Summary</div>
-      <span class="nb-countdown" style="color:${plColor}">${fmtUSD(sellSummary.totalRealizedPL)} realized</span>
-    </div>
-    <div class="fp-sub">${sellSummary.totalSellCount} sell${sellSummary.totalSellCount === 1 ? '' : 's'} logged across ${sellSummary.assets.length} asset${sellSummary.assets.length === 1 ? '' : 's'}</div>
-    <div class="nb-grid">
-      ${sellSummary.assets.map(row).join('')}
-    </div>
-    <div class="card-expand-hint">View details →</div>`;
+      <div class="card-expand-hint">View details →</div>`;
+  });
 }
 
 function openSellSummaryModal() {
@@ -3445,11 +3457,14 @@ document.getElementById('next-buy-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNextBuyModal(); }
 });
 
-document.getElementById('sell-summary-panel').addEventListener('click', () => {
-  if (window.__sellSummaryDetails) openSellSummaryModal();
-});
-document.getElementById('sell-summary-panel').addEventListener('keydown', (e) => {
-  if ((e.key === 'Enter' || e.key === ' ') && window.__sellSummaryDetails) { e.preventDefault(); openSellSummaryModal(); }
+['sell-summary-panel', 'sell-summary-panel-overview'].forEach((id) => {
+  const el = document.getElementById(id);
+  el.addEventListener('click', () => {
+    if (window.__sellSummaryDetails) openSellSummaryModal();
+  });
+  el.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && window.__sellSummaryDetails) { e.preventDefault(); openSellSummaryModal(); }
+  });
 });
 
 document.getElementById('monthly-balance-panel').addEventListener('click', () => {
@@ -3650,7 +3665,7 @@ function render(data) {
   cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
 
   renderNextBuyCard(lastBuyByAsset, daysSince);
-  renderSellSummaryCard(trades);
+  renderSellSummaryCard(trades, ['sell-summary-panel', 'sell-summary-panel-overview']);
 
   // draw sparklines now that the canvas elements exist in the DOM
   window.__sparklineData = { assets: summary.assets, riskByAsset };

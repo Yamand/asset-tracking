@@ -182,6 +182,8 @@
 
   /* ---------- asset allocation ---------- */
   .alloc-section{margin-bottom:34px;}
+  .sell-summary-section{margin-bottom:34px;}
+  .sell-summary-section .fin-panel{height:100%;}
   .alloc-sell-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
   @media (max-width:900px){.alloc-sell-row{grid-template-columns:1fr;}}
   .alloc-sell-row .alloc-grid{max-width:none;margin-bottom:0;}
@@ -1017,7 +1019,13 @@
             </div>
           </div>
         </div>
-        <div class="fin-panel" id="sell-summary-panel-overview" tabindex="0" role="button" aria-haspopup="dialog" style="display:none;align-self:start;"></div>
+        <div class="sell-summary-section">
+          <div class="sheet-head">
+            <span class="tag">SS</span>
+            <h2>Sell Summary</h2>
+          </div>
+          <div class="fin-panel" id="sell-summary-panel-overview" tabindex="0" role="button" aria-haspopup="dialog" style="display:none;"></div>
+        </div>
       </div>
     </div>
 
@@ -2615,6 +2623,7 @@ function renderSellSummaryCard(trades, panelIds) {
     panel.style.display = '';
 
     const plColor = sellSummary.totalRealizedPL >= 0 ? 'var(--gain)' : 'var(--loss)';
+    const hasOuterHeader = id === 'sell-summary-panel-overview';
     const row = (a) => `
       <div class="ss-row">
         <span class="ss-row-asset">${a.asset}</span>
@@ -2623,7 +2632,7 @@ function renderSellSummaryCard(trades, panelIds) {
       </div>`;
 
     panel.innerHTML = `
-      <div class="fp-label">Sell Summary</div>
+      ${hasOuterHeader ? '' : '<div class="fp-label">Sell Summary</div>'}
       <div class="fp-headline" style="color:${plColor}">${fmtUSD(sellSummary.totalRealizedPL)} realized</div>
       <div class="fp-sub">${sellSummary.totalSellCount} sell${sellSummary.totalSellCount === 1 ? '' : 's'} across ${sellSummary.assets.length} asset${sellSummary.assets.length === 1 ? '' : 's'}</div>
       <div class="ss-rows">

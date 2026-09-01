@@ -1031,6 +1031,7 @@
         </div>
         <div class="cards" id="asset-cards"></div>
         <div class="pace-strip" id="pace-strip"></div>
+        <div class="fin-panel" id="sell-summary-panel" tabindex="0" role="button" aria-haspopup="dialog" style="margin-top:14px;display:none;"></div>
       </div>
     </div>
 
@@ -1444,6 +1445,43 @@ function computeSummaryFromLog(trades) {
   const dcaPace = weeks.size ? { weeksActive: weeks.size, avgPerWeek: totalInvested / weeks.size } : null;
 
   return { assets, total, dcaPace };
+}
+
+function computeSellSummary(trades) {
+  const byAsset = {};
+  trades.forEach((t) => {
+    if (!byAsset[t.asset]) byAsset[t.asset] = { buyUnits: 0, sellUnits: 0, sellCount: 0, sellPriceSum: 0, realizedPL: 0 };
+    const bucket = byAsset[t.asset];
+    if (t.type && /buy/i.test(t.type)) {
+      bucket.buyUnits += t.units || 0;
+    } else if (t.type && /sell/i.test(t.type)) {
+      bucket.sellUnits += t.units || 0;
+      bucket.sellCount += 1;
+      bucket.sellPriceSum += t.price || 0;
+      bucket.realizedPL += t.realizedPL || 0;
+    }
+  });
+
+  const assets = Object.keys(byAsset)
+    .filter((asset) => byAsset[asset].sellCount > 0)
+    .map((asset) => {
+      const b = byAsset[asset];
+      return {
+        asset,
+        unitsSold: b.sellUnits,
+        sellCount: b.sellCount,
+        avgSellPrice: b.sellCount ? b.sellPriceSum / b.sellCount : null,
+        realizedPL: b.realizedPL,
+        sellPctOfPortfolio: b.buyUnits ? b.sellUnits / b.buyUnits : null,
+      };
+    });
+
+  if (!assets.length) return null;
+
+  const totalSellCount = assets.reduce((s, a) => s + a.sellCount, 0);
+  const totalRealizedPL = assets.reduce((s, a) => s + a.realizedPL, 0);
+
+  return { assets, totalSellCount, totalRealizedPL };
 }
 
 function computeChartDataFromLog(trades) {
@@ -2548,6 +2586,74 @@ function openNextBuyModal() {
 }
 
 /* =========================================================================
+   SELL SUMMARY PANEL — units sold, realized P&L, and sell activity per
+   asset. Hidden entirely until at least one sell exists in the log.
+   ========================================================================= */
+function renderSellSummaryCard(trades) {
+  const panel = document.getElementById('sell-summary-panel');
+  if (!panel) return;
+
+  const sellSummary = computeSellSummary(trades);
+  window.__sellSummaryDetails = sellSummary;
+
+  if (!sellSummary) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+
+  const plColor = sellSummary.totalRealizedPL >= 0 ? 'var(--gain)' : 'var(--loss)';
+  const row = (a) => `
+    <div class="nb-row">
+      <div class="nb-asset-block">
+        <span class="nb-asset">${a.asset}</span>
+        <span class="nb-zone">${a.sellCount} sell${a.sellCount === 1 ? '' : 's'} · ${a.sellPctOfPortfolio != null ? (a.sellPctOfPortfolio * 100).toFixed(1) + '% of units bought' : '—'}</span>
+      </div>
+      <span class="nb-amount" style="color:${a.realizedPL >= 0 ? 'var(--gain)' : 'var(--loss)'}">${fmtUSD(a.realizedPL)}</span>
+    </div>`;
+
+  panel.innerHTML = `
+    <div class="nb-top">
+      <div class="fp-label" style="margin-bottom:0;">Sell Summary</div>
+      <span class="nb-countdown" style="color:${plColor}">${fmtUSD(sellSummary.totalRealizedPL)} realized</span>
+    </div>
+    <div class="fp-sub">${sellSummary.totalSellCount} sell${sellSummary.totalSellCount === 1 ? '' : 's'} logged across ${sellSummary.assets.length} asset${sellSummary.assets.length === 1 ? '' : 's'}</div>
+    <div class="nb-grid">
+      ${sellSummary.assets.map(row).join('')}
+    </div>
+    <div class="card-expand-hint">View details →</div>`;
+}
+
+function openSellSummaryModal() {
+  const d = window.__sellSummaryDetails;
+  if (!d) return;
+
+  const assetSection = (a) => `
+    <div class="modal-stats" style="margin-bottom:14px;">
+      <div><span class="k">Asset</span><span class="v">${a.asset}</span></div>
+      <div><span class="k">Units sold</span><span class="v">${a.unitsSold.toFixed(8)}</span></div>
+      <div><span class="k">Sell count</span><span class="v">${a.sellCount}</span></div>
+      <div><span class="k">Avg sell price</span><span class="v">${fmtUSD(a.avgSellPrice)}</span></div>
+      <div><span class="k">Realized P&amp;L</span><span class="v" style="color:${a.realizedPL >= 0 ? 'var(--gain)' : 'var(--loss)'}">${fmtUSD(a.realizedPL)}</span></div>
+      <div><span class="k">% of units ever bought</span><span class="v">${a.sellPctOfPortfolio != null ? (a.sellPctOfPortfolio * 100).toFixed(2) + '%' : '—'}</span></div>
+    </div>`;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Sell Summary</span>
+      <span class="modal-mv" style="color:${d.totalRealizedPL >= 0 ? 'var(--gain)' : 'var(--loss)'}">${fmtUSD(d.totalRealizedPL)} total realized</span>
+    </div>
+    <div class="modal-section">
+      <h3>By asset</h3>
+      ${d.assets.map(assetSection).join('')}
+      <div class="modal-empty">
+        "% of units ever bought" is units sold ÷ total units ever purchased for that
+        asset — a rough gauge of how much of your accumulated position you've trimmed,
+        not a live percentage of current holdings.
+      </div>
+    </div>`;
+
+  showModal();
+}
+
+/* =========================================================================
    MONTHLY BALANCE PANEL — trend of Total Net Savings logged month-by-month
    in the "Monthly Balance" sheet tab, plus MoM deltas.
    ========================================================================= */
@@ -3339,6 +3445,13 @@ document.getElementById('next-buy-panel').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNextBuyModal(); }
 });
 
+document.getElementById('sell-summary-panel').addEventListener('click', () => {
+  if (window.__sellSummaryDetails) openSellSummaryModal();
+});
+document.getElementById('sell-summary-panel').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && window.__sellSummaryDetails) { e.preventDefault(); openSellSummaryModal(); }
+});
+
 document.getElementById('monthly-balance-panel').addEventListener('click', () => {
   if (window.__monthlyBalanceDetails && window.__monthlyBalanceDetails.rows.length) openMonthlyBalanceModal();
 });
@@ -3537,6 +3650,7 @@ function render(data) {
   cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
 
   renderNextBuyCard(lastBuyByAsset, daysSince);
+  renderSellSummaryCard(trades);
 
   // draw sparklines now that the canvas elements exist in the DOM
   window.__sparklineData = { assets: summary.assets, riskByAsset };

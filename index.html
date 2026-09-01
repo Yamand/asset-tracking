@@ -1392,7 +1392,14 @@ function computeSummaryFromLog(trades) {
   Object.keys(byAsset).forEach((asset) => {
     const rows = byAsset[asset].slice().sort((a, b) => (a.date && b.date ? a.date - b.date : 0));
     const latest = rows[rows.length - 1];
-    const invested = rows.reduce((s, r) => s + (r.type && /sell/i.test(r.type) ? 0 : (r.amount || 0)), 0);
+    // Buys add their $ amount; sells remove the cost basis of the units sold
+    // (units × avg cost at the time of that sale), not just skip to 0 — same
+    // fix applied to the Summary tab's Total Invested in the sheet itself.
+    const invested = rows.reduce((s, r) => {
+      const isSell = r.type && /sell/i.test(r.type);
+      if (isSell) return s - ((r.avgCost != null && r.units != null) ? r.avgCost * r.units : 0);
+      return s + (r.amount || 0);
+    }, 0);
 
     // Realized P&L per row only reflects that single sale (blank on buy rows,
     // not a running total) — sum every sell row for this asset rather than
@@ -1460,7 +1467,11 @@ function computeChartDataFromLog(trades) {
     Object.values(latestByAssetSoFar).forEach((t) => { value += t.marketValue || 0; });
     const invested = sorted
       .filter((t) => idx(t.week) <= idx(week))
-      .reduce((s, t) => s + (t.type && /sell/i.test(t.type) ? 0 : (t.amount || 0)), 0);
+      .reduce((s, t) => {
+        const isSell = t.type && /sell/i.test(t.type);
+        if (isSell) return s - ((t.avgCost != null && t.units != null) ? t.avgCost * t.units : 0);
+        return s + (t.amount || 0);
+      }, 0);
     const date = rowsThisWeek[0] ? rowsThisWeek[0].date : null;
     return { date, invested, value, pl: value - invested };
   });

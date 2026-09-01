@@ -1393,11 +1393,31 @@ function computeSummaryFromLog(trades) {
     const rows = byAsset[asset].slice().sort((a, b) => (a.date && b.date ? a.date - b.date : 0));
     const latest = rows[rows.length - 1];
     const invested = rows.reduce((s, r) => s + (r.type && /sell/i.test(r.type) ? 0 : (r.amount || 0)), 0);
-    const unrealizedPL = latest.unrealizedPL;
+
+    // Realized P&L per row only reflects that single sale (blank on buy rows,
+    // not a running total) — sum every sell row for this asset rather than
+    // trusting whatever the most recent row happens to say, or a later buy
+    // would wipe out a prior sell's realized gain from the display.
+    const sellRows = rows.filter((r) => r.type && /sell/i.test(r.type));
+    const realizedPL = sellRows.reduce((s, r) => s + (r.realizedPL || 0), 0);
+    const sellCount = sellRows.length;
+
+    // The sheet's own Unrealized P&L formula (marketValue - avgCost*totalUnits)
+    // isn't populated on Sell rows in this template. Reproduce it ourselves
+    // when missing, using the row's own avgCost/units — this is the same
+    // formula the sheet already uses on Buy rows, just filled in for the gap.
+    let unrealizedPL = latest.unrealizedPL;
+    let unrealizedEstimated = !!latest.unrealizedEstimated;
+    if (unrealizedPL == null && latest.avgCost != null && latest.totalUnits != null && latest.marketValue != null) {
+      unrealizedPL = latest.marketValue - latest.avgCost * latest.totalUnits;
+      unrealizedEstimated = true;
+    }
+
     assets.push({
       asset, invested, units: latest.totalUnits, avgCost: latest.avgCost,
       currentPrice: latest.weeklyPrice, marketValue: latest.marketValue, unrealizedPL,
-      returnPct: invested ? unrealizedPL / invested : null, realizedPL: latest.realizedPL,
+      unrealizedEstimated,
+      returnPct: invested ? unrealizedPL / invested : null, realizedPL, sellCount,
       allocation: null,
     });
   });
@@ -2952,7 +2972,7 @@ function openAssetModal(asset) {
       <span class="modal-asset">${a.asset}</span>
       ${zone ? `<span class="zone-badge">Risk ${latest.risk.toFixed(2)} → ${zone.zone}</span>` : ''}
       <span class="modal-mv">${fmtUSD(a.marketValue)}</span>
-      <span class="modal-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</span>
+      <span class="modal-pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})${a.unrealizedEstimated ? '<span title="Estimated: sheet left this blank, computed as marketValue - avgCost×units" style="opacity:.55;cursor:help;"> *</span>' : ''}</span>
     </div>
 
     <div class="modal-stats">
@@ -2964,6 +2984,7 @@ function openAssetModal(asset) {
       <div><span class="k">Realized P&amp;L</span><span class="v" style="color:${(a.realizedPL ?? 0) >= 0 ? 'var(--gain)' : 'var(--loss)'}">${a.realizedPL != null ? fmtUSD(a.realizedPL) : '—'}</span></div>
       <div><span class="k">Last buy</span><span class="v">${daysSinceLastBuy != null ? daysSinceLastBuy + 'd ago' : '—'}</span></div>
       <div><span class="k">Buys logged</span><span class="v">${buyCount}</span></div>
+      <div><span class="k">Sells logged</span><span class="v">${a.sellCount || 0}</span></div>
       <div><span class="k">Avg / week</span><span class="v">${avgPerWeek != null ? fmtUSD(avgPerWeek) : '—'}</span></div>
     </div>
 
@@ -3468,7 +3489,7 @@ function render(data) {
         <span class="alloc">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '% alloc' : ''}</span>
         <div class="asset-name">${a.asset}</div>
         <div class="mv">${fmtUSD(a.marketValue)}</div>
-        <div class="pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})</div>
+        <div class="pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})${a.unrealizedEstimated ? '<span title="Estimated: sheet left this blank on the sell row, computed as marketValue - avgCost×units" style="opacity:.55;cursor:help;"> *</span>' : ''}</div>
         ${a.realizedPL ? `<div class="pl realized ${(a.realizedPL >= 0) ? 'pos' : 'neg'}">${fmtUSD(a.realizedPL)} realized</div>` : ''}
         <div class="meta">
           <div><span class="k">Invested</span> ${fmtUSD(a.invested)}</div>
@@ -3550,7 +3571,7 @@ function render(data) {
         <td>${fmtUSD(t.amount)}</td>
         <td>${fmtUSD(t.avgCost)}</td>
         <td>${fmtUSD(t.marketValue)}</td>
-        <td class="${(t.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg'}">${fmtUSD(t.unrealizedPL)}</td>
+        <td class="${(t.unrealizedPL ?? 0) >= 0 ? 'pos' : 'neg'}">${fmtUSD(t.unrealizedPL)}${t.unrealizedEstimated ? '<span title="Estimated: sheet left this blank, computed as marketValue - avgCost×units" style="opacity:.55;cursor:help;">*</span>' : ''}</td>
         <td class="${(t.realizedPL ?? 0) >= 0 ? 'pos' : 'neg'}">${t.realizedPL != null ? fmtUSD(t.realizedPL) : '—'}</td>
         <td>${t.risk != null ? t.risk.toFixed(2) : '—'}</td>
         <td>${t.notes || ''}</td>
@@ -3847,6 +3868,16 @@ async function loadAll() {
   }
 
   const trades = logR.data;
+  // The sheet's Unrealized P&L formula isn't populated on Sell rows — fill it
+  // in using the same formula the sheet already applies on Buy rows
+  // (marketValue - avgCost*totalUnits), using that row's own point-in-time
+  // avgCost/units. Flagged as estimated so the UI can note it if useful.
+  trades.forEach((t) => {
+    if (t.unrealizedPL == null && t.avgCost != null && t.totalUnits != null && t.marketValue != null) {
+      t.unrealizedPL = t.marketValue - t.avgCost * t.totalUnits;
+      t.unrealizedEstimated = true;
+    }
+  });
   // Un-hide the container BEFORE drawing charts: canvas needs real layout
   // dimensions (getBoundingClientRect) to draw into, and a display:none
   // ancestor reports 0×0, which silently no-ops the chart drawing.

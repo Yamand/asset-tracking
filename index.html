@@ -40,29 +40,70 @@
     padding:20px 16px 64px;
     position:relative;
   }
-  /* ---------- ambient animated background ---------- */
-  body::before{
-    content:"";
+  /* ---------- ambient animated mesh-gradient background ----------
+     Four independently-drifting blurred color orbs, staggered durations
+     and delays so the motion never reads as a synced loop. */
+  .mesh-bg{
     position:fixed;
-    inset:-15%;
+    inset:0;
     z-index:-1;
+    overflow:hidden;
     pointer-events:none;
-    background-image:
-      radial-gradient(circle at 20% 18%, rgba(139,92,246,0.20), transparent 42%),
-      radial-gradient(circle at 82% 10%, rgba(34,211,238,0.16), transparent 40%),
-      radial-gradient(circle at 55% 92%, rgba(236,72,153,0.09), transparent 48%);
-    filter:blur(60px);
-    animation:bgDrift 36s ease-in-out infinite alternate;
+    filter:blur(70px);
+  }
+  .mesh-blob{
+    position:absolute;
+    width:52vmax;
+    height:52vmax;
+    border-radius:50%;
+    opacity:0.85;
     will-change:transform;
   }
-  @keyframes bgDrift{
+  .mesh-blob.b1{
+    top:-14%; left:-8%;
+    background:radial-gradient(circle, rgba(139,92,246,0.42), transparent 68%);
+    animation:meshDrift1 34s ease-in-out infinite alternate;
+  }
+  .mesh-blob.b2{
+    top:-18%; right:-12%;
+    background:radial-gradient(circle, rgba(34,211,238,0.34), transparent 68%);
+    animation:meshDrift2 41s ease-in-out infinite alternate;
+    animation-delay:-6s;
+  }
+  .mesh-blob.b3{
+    bottom:-20%; left:18%;
+    background:radial-gradient(circle, rgba(236,72,153,0.22), transparent 68%);
+    animation:meshDrift3 47s ease-in-out infinite alternate;
+    animation-delay:-14s;
+  }
+  .mesh-blob.b4{
+    bottom:-16%; right:6%;
+    background:radial-gradient(circle, rgba(251,191,36,0.16), transparent 68%);
+    animation:meshDrift4 38s ease-in-out infinite alternate;
+    animation-delay:-22s;
+  }
+  @keyframes meshDrift1{
     0%   { transform:translate(0%, 0%) scale(1); }
-    33%  { transform:translate(-4%, 3%) scale(1.06); }
-    66%  { transform:translate(3%, -3%) scale(1.03); }
-    100% { transform:translate(-2%, 4%) scale(1.08); }
+    50%  { transform:translate(10%, 8%) scale(1.12); }
+    100% { transform:translate(-6%, 14%) scale(0.96); }
+  }
+  @keyframes meshDrift2{
+    0%   { transform:translate(0%, 0%) scale(1); }
+    50%  { transform:translate(-12%, 10%) scale(1.08); }
+    100% { transform:translate(-4%, -10%) scale(1.15); }
+  }
+  @keyframes meshDrift3{
+    0%   { transform:translate(0%, 0%) scale(1); }
+    50%  { transform:translate(9%, -12%) scale(1.1); }
+    100% { transform:translate(-10%, -4%) scale(0.94); }
+  }
+  @keyframes meshDrift4{
+    0%   { transform:translate(0%, 0%) scale(1); }
+    50%  { transform:translate(-8%, -9%) scale(1.14); }
+    100% { transform:translate(6%, 8%) scale(1.0); }
   }
   @media (prefers-reduced-motion: reduce){
-    body::before{ animation:none; }
+    .mesh-blob{ animation:none; }
   }
   a{color:var(--accent);}
   .wrap{max-width:1080px;margin:0 auto;position:relative;z-index:0;}
@@ -978,6 +1019,12 @@
 </style>
 </head>
 <body>
+<div class="mesh-bg" aria-hidden="true">
+  <div class="mesh-blob b1"></div>
+  <div class="mesh-blob b2"></div>
+  <div class="mesh-blob b3"></div>
+  <div class="mesh-blob b4"></div>
+</div>
 <div class="wrap">
 
   <div class="titleblock">

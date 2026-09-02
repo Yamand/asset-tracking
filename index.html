@@ -689,12 +689,35 @@
     padding:8px 10px;font-family:var(--mono);
   }
   .nb-asset-block{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .nb-amount-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .nb-asset{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;}
   .nb-zone{font-size:10px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .nb-amount{font-size:13px;font-weight:700;white-space:nowrap;}
   .nb-amount.tier-buy{color:var(--gain);}
   .nb-amount.tier-hold{color:var(--accent2);}
   .nb-amount.tier-sell{color:var(--loss);}
+  .nb-funds{
+    display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;
+    margin-top:10px;padding:8px 10px;border-radius:10px;
+    border:1px solid var(--hair);background:var(--bg-panel-2);
+    font-family:var(--mono);font-size:11px;color:var(--ink-dim);
+  }
+  .nb-funds b{color:var(--ink);font-weight:700;}
+  .nb-funds.nb-funds-short{border-color:rgba(251,113,133,0.4);background:rgba(251,113,133,0.06);}
+  .nb-funds.nb-funds-short b{color:var(--loss);}
+  .nb-warn-inline{color:var(--loss);font-weight:600;flex-basis:100%;}
+  .nb-warn{
+    font-size:9px;color:var(--loss);font-weight:600;letter-spacing:.02em;
+    cursor:help;white-space:nowrap;
+  }
+  .nb-copy-btn{
+    font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.03em;
+    color:var(--ink-dim);background:var(--bg-panel);border:1px solid var(--hair-bright);
+    border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap;
+    transition:color .15s,border-color .15s;
+  }
+  .nb-copy-btn:hover{color:var(--ink);border-color:var(--accent2);}
+  .nb-copy-btn:disabled{color:var(--gain);border-color:var(--gain);cursor:default;}
 
   .ss-rows{display:flex;flex-direction:column;gap:6px;margin-top:12px;border-top:1px solid var(--hair);padding-top:10px;}
   .ss-row{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:8px;font-family:var(--mono);font-size:12px;}
@@ -1223,6 +1246,11 @@ const RISK_SOURCES = {
 };
 const SELL_TIER_MIN_HOLDING = 500; // sell tiers only "armed" once holdings reach this, per DCA rules
 
+// Target allocation split used only for the Next Buy "over target" warning.
+// Edit these to match your actual target weights — defaults are a placeholder.
+const TARGET_ALLOCATION = { BTC: 0.70, XAUT: 0.30 };
+const ALLOCATION_WARN_THRESHOLD = 0.05; // warn if a buy pushes an asset >5pp past its target
+
 async function fetchRiskHistory(key, timeoutMs = 15000) {
   const src = RISK_SOURCES[key];
   const controller = new AbortController();
@@ -1648,6 +1676,35 @@ function currentZone(rules, score) {
    FORMATTERS
    ========================================================================= */
 const fmtUSD = (n, dp = 2) => n == null ? '—' : (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+
+/* =========================================================================
+   ANIMATED NUMBER TRANSITIONS — counts an element's displayed number up/down
+   from its previously rendered value to a new one on each refresh. First
+   render for a given cacheKey is instant (no animation from zero).
+   ========================================================================= */
+function animateNumberElement(elId, targetValue, cacheKey, formatFn, duration = 800) {
+  const el = document.getElementById(elId);
+  if (!el || targetValue == null || !isFinite(targetValue)) {
+    if (el && targetValue == null) el.innerHTML = formatFn(null);
+    return;
+  }
+  window.__animCache = window.__animCache || {};
+  const from = window.__animCache[cacheKey];
+  window.__animCache[cacheKey] = targetValue;
+  if (from == null || !isFinite(from) || Math.abs(from - targetValue) < 0.005) {
+    el.innerHTML = formatFn(targetValue);
+    return;
+  }
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    el.innerHTML = formatFn(from + (targetValue - from) * eased);
+    if (t < 1) requestAnimationFrame(tick);
+    else el.innerHTML = formatFn(targetValue);
+  }
+  requestAnimationFrame(tick);
+}
 const fmtNum = (n, dp = 2) => n == null ? '—' : n.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
 const fmtPct = (n) => n == null ? '—' : (n >= 0 ? '+' : '') + (n * 100).toFixed(1) + '%';
 const fmtDate = (d) => d ? d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) : '—';
@@ -2530,7 +2587,37 @@ function nbAmountLabel(d) {
   return latest.size_usd > 0 ? `$${latest.size_usd}` : 'Hold — $0';
 }
 
-function renderNextBuyCard(lastBuyByAsset, daysSinceFn) {
+// Warn if this week's buy would push an asset more than ALLOCATION_WARN_THRESHOLD
+// past its TARGET_ALLOCATION share of the (post-buy) portfolio. Returns a tooltip
+// string when it would, or null when it's within bounds / not enough data.
+function computeAllocWarning(asset, buyAmount, assetMV, totalMV, totalRequired) {
+  const target = TARGET_ALLOCATION[asset];
+  if (target == null || totalMV == null || !buyAmount || buyAmount <= 0) return null;
+  const newTotal = totalMV + totalRequired;
+  if (newTotal <= 0) return null;
+  const newAlloc = ((assetMV || 0) + buyAmount) / newTotal;
+  const delta = newAlloc - target;
+  if (delta > ALLOCATION_WARN_THRESHOLD) {
+    return `This buy would put ${asset} at ${(newAlloc * 100).toFixed(0)}% of the portfolio — ${(delta * 100).toFixed(1)}pp over its ${(target * 100).toFixed(0)}% target.`;
+  }
+  return null;
+}
+
+function copyOrderSize(btnEl, text) {
+  const done = () => {
+    const original = btnEl.textContent;
+    btnEl.textContent = 'Copied ✓';
+    btnEl.disabled = true;
+    setTimeout(() => { btnEl.textContent = original; btnEl.disabled = false; }, 1400);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(done);
+  } else {
+    done();
+  }
+}
+
+function renderNextBuyCard(lastBuyByAsset, daysSinceFn, usdtValue, totalMV) {
   const panel = document.getElementById('next-buy-panel');
   if (!panel) return;
   const btc = window.__riskDetails && window.__riskDetails.btc;
@@ -2541,20 +2628,53 @@ function renderNextBuyCard(lastBuyByAsset, daysSinceFn) {
   const countdown = daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil} days`;
   const dateStr = date.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short' });
 
+  // USDT readiness: sum this week's buy-tier sizes only (sells don't consume USDT)
+  const btcRequired = btc.tierClass !== 'sell' ? (btc.latest.size_usd || 0) : 0;
+  const xautRequired = xaut.tierClass !== 'sell' ? (xaut.latest.size_usd || 0) : 0;
+  const totalRequired = btcRequired + xautRequired;
+  const remainingAfter = usdtValue != null ? usdtValue - totalRequired : null;
+  const insufficientFunds = remainingAfter != null && remainingAfter < 0;
+
+  // allocation-target warning per asset
+  const btcMV = window.__assetDetails && window.__assetDetails.BTC ? window.__assetDetails.BTC.summary.marketValue : null;
+  const xautMV = window.__assetDetails && window.__assetDetails.XAUT ? window.__assetDetails.XAUT.summary.marketValue : null;
+  btc.allocWarning = computeAllocWarning('BTC', btcRequired, btcMV, totalMV, totalRequired);
+  xaut.allocWarning = computeAllocWarning('XAUT', xautRequired, xautMV, totalMV, totalRequired);
+
   window.__nextBuyDetails = {
-    btc, xaut, daysUntil, date,
+    btc, xaut, daysUntil, date, usdtValue, totalRequired, remainingAfter, insufficientFunds,
     btcDaysSinceLastBuy: daysSinceFn(lastBuyByAsset.BTC),
     xautDaysSinceLastBuy: daysSinceFn(lastBuyByAsset.XAUT),
   };
 
-  const row = (label, d) => `
-    <div class="nb-row">
-      <div class="nb-asset-block">
-        <span class="nb-asset">${label}</span>
-        <span class="nb-zone">${d.latest.zone}</span>
-      </div>
-      <span class="nb-amount tier-${d.tierClass}">${nbAmountLabel(d)}</span>
-    </div>`;
+  const row = (label, d) => {
+    const copyBtn = (d.tierClass !== 'sell' && d.latest.size_usd > 0)
+      ? `<button class="nb-copy-btn" onclick="event.stopPropagation();copyOrderSize(this,'${d.latest.size_usd}')" title="Copy order size (${label})">Copy</button>`
+      : '';
+    const warnBadge = d.allocWarning
+      ? `<span class="nb-warn" title="${d.allocWarning.replace(/"/g, '&quot;')}">⚠ over target</span>`
+      : '';
+    return `
+      <div class="nb-row">
+        <div class="nb-asset-block">
+          <span class="nb-asset">${label}</span>
+          <span class="nb-zone">${d.latest.zone}</span>
+          ${warnBadge}
+        </div>
+        <div class="nb-amount-wrap">
+          <span class="nb-amount tier-${d.tierClass}">${nbAmountLabel(d)}</span>
+          ${copyBtn}
+        </div>
+      </div>`;
+  };
+
+  const fundsHtml = usdtValue != null ? `
+    <div class="nb-funds ${insufficientFunds ? 'nb-funds-short' : ''}">
+      <span>USDT available: <b>${fmtUSD(usdtValue, 0)}</b></span>
+      <span>Required: <b>${fmtUSD(totalRequired, 0)}</b></span>
+      <span>After buy: <b>${fmtUSD(remainingAfter, 0)}</b></span>
+      ${insufficientFunds ? `<span class="nb-warn-inline">⚠ not enough USDT for this week's buys</span>` : ''}
+    </div>` : '';
 
   panel.innerHTML = `
     <div class="nb-top">
@@ -2562,6 +2682,7 @@ function renderNextBuyCard(lastBuyByAsset, daysSinceFn) {
       <span class="nb-countdown">${countdown}</span>
     </div>
     <div class="fp-sub">${dateStr} · sized off today's risk scores</div>
+    ${fundsHtml}
     <div class="nb-grid">
       ${row('BTC', btc)}
       ${row('XAUT', xaut)}
@@ -2572,7 +2693,7 @@ function renderNextBuyCard(lastBuyByAsset, daysSinceFn) {
 function openNextBuyModal() {
   const d = window.__nextBuyDetails;
   if (!d) return;
-  const { btc, xaut, daysUntil, date, btcDaysSinceLastBuy, xautDaysSinceLastBuy } = d;
+  const { btc, xaut, daysUntil, date, btcDaysSinceLastBuy, xautDaysSinceLastBuy, usdtValue, totalRequired, remainingAfter, insufficientFunds } = d;
   const countdown = daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil} days`;
 
   const assetSection = (label, dd, daysSince) => `
@@ -2583,7 +2704,17 @@ function openNextBuyModal() {
       <div><span class="k">This week's size</span><span class="v">${nbAmountLabel(dd)}</span></div>
       <div><span class="k">Action</span><span class="v">${dd.latest.action}</span></div>
       <div><span class="k">Last buy</span><span class="v">${daysSince != null ? daysSince + 'd ago' : '—'}</span></div>
-    </div>`;
+      ${dd.allocWarning ? `<div><span class="k">Allocation</span><span class="v" style="color:var(--loss);">⚠ over target</span></div>` : ''}
+    </div>
+    ${dd.allocWarning ? `<div class="modal-empty" style="color:var(--loss);margin-top:-8px;margin-bottom:14px;">${dd.allocWarning}</div>` : ''}`;
+
+  const fundsSection = usdtValue != null ? `
+    <div class="modal-stats" style="margin-bottom:14px;">
+      <div><span class="k">USDT available</span><span class="v">${fmtUSD(usdtValue, 0)}</span></div>
+      <div><span class="k">Required this week</span><span class="v">${fmtUSD(totalRequired, 0)}</span></div>
+      <div><span class="k">After buy</span><span class="v" style="color:${insufficientFunds ? 'var(--loss)' : 'var(--ink)'};">${fmtUSD(remainingAfter, 0)}</span></div>
+    </div>
+    ${insufficientFunds ? `<div class="modal-empty" style="color:var(--loss);">⚠ Not enough USDT on hand to cover this week's buys — top up before Monday.</div>` : ''}` : '';
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-head">
@@ -2592,6 +2723,8 @@ function openNextBuyModal() {
       <span class="modal-mv">${date.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'short' })}</span>
     </div>
     <div class="modal-section">
+      <h3>Funding readiness</h3>
+      ${fundsSection}
       <h3>This week's preview</h3>
       ${assetSection('BTC', btc, btcDaysSinceLastBuy)}
       ${assetSection('XAUT', xaut, xautDaysSinceLastBuy)}
@@ -3556,9 +3689,11 @@ function render(data) {
 
   // ---- hero ----
   const total = savings.totalNetSavings ?? 0;
-  const whole = Math.floor(total);
-  const cents = Math.round((total - whole) * 100).toString().padStart(2, '0');
-  document.getElementById('hero-total').innerHTML = `$${whole.toLocaleString()}<span class="cents">.${cents}</span>`;
+  animateNumberElement('hero-total', total, 'hero-total', (v) => {
+    const w = Math.floor(v);
+    const c = Math.round((v - w) * 100).toString().padStart(2, '0');
+    return `$${w.toLocaleString()}<span class="cents">.${c}</span>`;
+  });
 
   const netPL = summary.total ? summary.total.unrealizedPL : null;
   const netRealized = summary.total ? summary.total.realizedPL : null;
@@ -3636,7 +3771,7 @@ function render(data) {
       <div class="card" tabindex="0" role="button" aria-haspopup="dialog" onclick="openAssetModal('${a.asset}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAssetModal('${a.asset}');}">
         <span class="alloc">${a.allocation != null ? (a.allocation * 100).toFixed(0) + '% alloc' : ''}</span>
         <div class="asset-name">${a.asset}</div>
-        <div class="mv">${fmtUSD(a.marketValue)}</div>
+        <div class="mv" id="mv-${a.asset}"></div>
         <div class="pl ${plClass}">${fmtUSD(a.unrealizedPL)} (${fmtPct(a.returnPct)})${a.unrealizedEstimated ? '<span title="Estimated: sheet left this blank on the sell row, computed as marketValue - avgCost×units" style="opacity:.55;cursor:help;"> *</span>' : ''}</div>
         ${a.realizedPL ? `<div class="pl realized ${(a.realizedPL >= 0) ? 'pos' : 'neg'}">${fmtUSD(a.realizedPL)} realized</div>` : ''}
         <div class="meta">
@@ -3660,7 +3795,7 @@ function render(data) {
       <div class="card stable">
         <div class="stable-icon">$</div>
         <div class="asset-name">USDT · Stable Coin</div>
-        <div class="mv">${fmtUSD(usdtValue)}</div>
+        <div class="mv" id="mv-USDT"></div>
       </div>`;
   }
   ghostAssets.forEach((sym) => {
@@ -3673,7 +3808,15 @@ function render(data) {
   });
   cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
 
-  renderNextBuyCard(lastBuyByAsset, daysSince);
+  // animate each card's market value from its previously rendered figure
+  summary.assets.forEach((a) => {
+    animateNumberElement(`mv-${a.asset}`, a.marketValue, `mv-${a.asset}`, (v) => fmtUSD(v));
+  });
+  if (usdtValue != null) {
+    animateNumberElement('mv-USDT', usdtValue, 'mv-USDT', (v) => fmtUSD(v));
+  }
+
+  renderNextBuyCard(lastBuyByAsset, daysSince, usdtValue, summary.total ? summary.total.marketValue : null);
   renderSellSummaryCard(trades, ['sell-summary-panel', 'sell-summary-panel-overview']);
 
   // draw sparklines now that the canvas elements exist in the DOM

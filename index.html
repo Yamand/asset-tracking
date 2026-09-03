@@ -712,33 +712,6 @@
     font-size:9px;color:var(--loss);font-weight:600;letter-spacing:.02em;
     cursor:help;white-space:nowrap;
   }
-  /* ---------- cash-flow heatmap (Risk Scores tab) ---------- */
-  .cfh-grid{
-    display:grid;
-    grid-template-columns:38px repeat(16,1fr);
-    gap:3px;
-    align-items:center;
-    margin-top:12px;
-  }
-  .cfh-wlabel{
-    font-family:var(--mono);font-size:9px;color:var(--ink-faint);
-    text-align:center;white-space:nowrap;transform:rotate(-38deg);
-  }
-  .cfh-rlabel{
-    font-family:var(--mono);font-size:11px;color:var(--ink-dim);font-weight:700;
-  }
-  .cfh-cell{
-    height:20px;border-radius:4px;cursor:default;
-  }
-  .cfh-cell.cfh-empty{
-    background:var(--bg-panel-2);border:1px solid var(--hair);
-  }
-  .cfh-legend{
-    display:flex;align-items:center;gap:6px;margin-top:12px;
-    font-family:var(--mono);font-size:10px;color:var(--ink-dim);flex-wrap:wrap;
-  }
-  .cfh-swatch{width:16px;height:12px;border-radius:2px;display:inline-block;}
-  .cfh-empty-swatch{background:var(--bg-panel-2);border:1px solid var(--hair);}
   .ss-rows{display:flex;flex-direction:column;gap:6px;margin-top:12px;border-top:1px solid var(--hair);padding-top:10px;}
   .ss-row{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:8px;font-family:var(--mono);font-size:12px;}
   .ss-row-asset{color:var(--ink-dim);font-weight:700;letter-spacing:.04em;}
@@ -1328,10 +1301,6 @@
 
       <div class="next-buy-row">
         <div class="fin-panel" id="next-buy-panel" tabindex="0" role="button" aria-haspopup="dialog"></div>
-      </div>
-
-      <div class="next-buy-row">
-        <div class="fin-panel" id="cashflow-heatmap-panel"></div>
       </div>
     </div>
 
@@ -2130,6 +2099,12 @@ function renderDebtCountdown() {
   const panel = document.getElementById('debt-panel');
   if (!panel) return;
   const now = new Date();
+
+  if (now > DEBT_FREE_DATE) {
+    renderPostPayoffRunway(panel, now);
+    return;
+  }
+
   const totalSpan = DEBT_FREE_DATE - DEBT_PLAN_START;
   const elapsed   = now - DEBT_PLAN_START;
   const pct = Math.min(100, Math.max(0, (elapsed / totalSpan) * 100));
@@ -2140,7 +2115,7 @@ function renderDebtCountdown() {
   const totalDebt  = 12 * MONTHLY_DEBT;
   const remaining  = Math.max(0, totalDebt - totalPaid);
 
-  window.__debtDetails = { now, pct, daysLeft, monthsLeft, monthsPaid, totalPaid, totalDebt, remaining };
+  window.__debtDetails = { now, postPayoff: false, pct, daysLeft, monthsLeft, monthsPaid, totalPaid, totalDebt, remaining };
 
   panel.innerHTML = `
     <div class="fp-label">Debt Freedom Countdown</div>
@@ -2151,6 +2126,61 @@ function renderDebtCountdown() {
     <div class="fp-sub" style="margin-top:8px;">
       Post-payoff surplus: <b style="color:var(--gain)">+$${MONTHLY_DEBT}/mo freed</b> from Jan 2027
     </div>
+    <div class="card-expand-hint">View details →</div>`;
+}
+
+/* =========================================================================
+   POST-PAYOFF RUNWAY — once the car loan clears (DEBT_FREE_DATE), the freed
+   $300/mo auto-redirects: first to top up the Emergency Fund to its target,
+   then — once that's full — to accelerating the Coast FI timeline. No
+   manual toggle; the active goal is whichever of the two isn't funded yet.
+   ========================================================================= */
+function renderPostPayoffRunway(panel, now) {
+  const ef = window.__emergencyFundDetails;
+  const cf = window.__coastFiDetails;
+  const efDone = !ef || ef.remaining <= 0;
+  const activeGoal = !efDone ? 'ef' : 'coastfi';
+
+  let bodyHtml;
+
+  if (activeGoal === 'ef' && ef) {
+    const monthsToFill = ef.remaining > 0 ? Math.ceil(ef.remaining / MONTHLY_DEBT) : 0;
+    const etaDate = new Date(now);
+    etaDate.setMonth(etaDate.getMonth() + monthsToFill);
+    bodyHtml = `
+      <div class="fp-sub">Redirecting <b style="color:var(--gain)">$${MONTHLY_DEBT}/mo</b> to <b>Emergency Fund</b> — ${fmtUSD(ef.remaining, 0)} to go</div>
+      <div class="fp-progress"><div class="fp-fill" style="width:${ef.pct.toFixed(1)}%"></div></div>
+      <div class="fp-ticks"><span>${fmtUSD(ef.total, 0)}</span><span>${ef.pct.toFixed(0)}%</span><span>${fmtUSD(ef.target, 0)}</span></div>
+      <div class="fp-sub" style="margin-top:8px;">Full by <b>${etaDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</b> at this pace — then Coast FI takes over</div>`;
+  } else if (cf) {
+    const rm = Math.pow(1 + cf.r, 1 / 12) - 1;
+    const pmt = MONTHLY_DEBT;
+    let months = 0;
+    if (cf.pv < cf.fv) {
+      const x = (cf.fv + pmt / rm) / (cf.pv + pmt / rm);
+      months = Math.max(0, Math.log(x) / Math.log(1 + rm));
+    }
+    const accelDate = new Date(now);
+    accelDate.setDate(accelDate.getDate() + Math.round(months * 30.44));
+    const baselineLabel = cf.coastDate
+      ? cf.coastDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+      : (cf.pv >= cf.fv ? 'Already there' : '—');
+
+    bodyHtml = `
+      <div class="fp-sub">Redirecting <b style="color:var(--gain)">$${MONTHLY_DEBT}/mo</b> to <b>Coast FI</b> — accelerated est. <b>${accelDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</b></div>
+      <div class="fp-progress"><div class="fp-fill" style="width:${cf.pctToTarget.toFixed(1)}%"></div></div>
+      <div class="fp-ticks"><span>${fmtUSD(cf.pv, 0)}</span><span>${cf.pctToTarget.toFixed(1)}%</span><span>${fmtUSD(cf.fv, 0)}</span></div>
+      <div class="fp-sub" style="margin-top:8px;">Without the redirect: ~<b>${baselineLabel}</b></div>`;
+  } else {
+    bodyHtml = `<div class="fp-sub">Loan paid off ${DEBT_FREE_DATE.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} — $${MONTHLY_DEBT}/mo freed.</div>`;
+  }
+
+  window.__debtDetails = { now, postPayoff: true, activeGoal, ef, cf };
+
+  panel.innerHTML = `
+    <div class="fp-label">Debt Freedom — Runway</div>
+    <div class="fp-headline" style="color:var(--gain);">Paid off</div>
+    ${bodyHtml}
     <div class="card-expand-hint">View details →</div>`;
 }
 
@@ -2805,126 +2835,6 @@ function renderNextBuyCard(lastBuyByAsset, daysSinceFn, usdtValue, totalMV) {
     <div class="card-expand-hint">View details →</div>`;
 }
 
-/* =========================================================================
-   CASH-FLOW HEATMAP — actual buy $ vs. risk-recommended $ per asset, for
-   the last 16 Monday DCA weeks. "Recommended" is read from each asset's
-   daily risk-history JSON (size_usd on/just-before that Monday); "actual"
-   is summed from Buy trades in the log that fall inside that week.
-   ========================================================================= */
-function ymd(d) {
-  if (!d) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-// history rows are sorted ascending by date; returns size_usd for the
-// closest entry on or before targetYmd, or null if none exists yet.
-function sizeUsdOnOrBefore(historyArr, targetYmd) {
-  if (!historyArr || !historyArr.length) return null;
-  let found = null;
-  for (let i = 0; i < historyArr.length; i++) {
-    if (historyArr[i].date <= targetYmd) found = historyArr[i];
-    else break;
-  }
-  return found ? found.size_usd : null;
-}
-
-const CFH_RAMP = ['#EEEDFE', '#CECBF6', '#AFA9EC', '#7F77DD', '#534AB7', '#3C3489', '#26215C'];
-function cfhColorFor(ratio, rec) {
-  if (rec == null || rec <= 0) return null;   // hold week — nothing was recommended
-  if (!ratio || ratio <= 0) return null;       // recommended a buy but nothing was bought
-  const idx = Math.min(CFH_RAMP.length - 1, Math.round(Math.min(ratio, 1.3) / 1.3 * (CFH_RAMP.length - 1)));
-  return CFH_RAMP[idx];
-}
-
-function renderCashFlowHeatmap(trades, riskHistoryRaw) {
-  const panel = document.getElementById('cashflow-heatmap-panel');
-  if (!panel) return;
-  if (!trades || !trades.length || !riskHistoryRaw) { panel.innerHTML = ''; return; }
-
-  const WEEKS_BACK = 16;
-  const ASSETS = ['BTC', 'XAUT'];
-
-  const now = new Date();
-  const daysSinceMonday = (now.getDay() + 6) % 7;
-  const recentMonday = new Date(now);
-  recentMonday.setDate(now.getDate() - daysSinceMonday);
-  recentMonday.setHours(0, 0, 0, 0);
-
-  const mondays = [];
-  for (let i = WEEKS_BACK - 1; i >= 0; i--) {
-    const d = new Date(recentMonday);
-    d.setDate(recentMonday.getDate() - i * 7);
-    mondays.push(d);
-  }
-
-  const actualByAssetWeek = {};
-  ASSETS.forEach((a) => { actualByAssetWeek[a] = new Array(WEEKS_BACK).fill(0); });
-
-  trades.forEach((t) => {
-    if (!t.date || !t.type || !/buy/i.test(t.type) || !ASSETS.includes(t.asset)) return;
-    for (let i = 0; i < mondays.length; i++) {
-      const weekEnd = new Date(mondays[i]);
-      weekEnd.setDate(mondays[i].getDate() + 7);
-      if (t.date >= mondays[i] && t.date < weekEnd) {
-        actualByAssetWeek[t.asset][i] += (t.amount || 0);
-        break;
-      }
-    }
-  });
-
-  const rowsData = ASSETS.map((asset) => {
-    const hist = riskHistoryRaw[asset.toLowerCase()];
-    const cells = mondays.map((monday, i) => {
-      const rec = sizeUsdOnOrBefore(hist, ymd(monday));
-      const actual = actualByAssetWeek[asset][i];
-      const ratio = rec && rec > 0 ? actual / rec : (actual > 0 ? 1 : 0);
-      return { monday, rec, actual, ratio };
-    });
-    return { asset, cells };
-  });
-
-  const weekLabelsHtml = mondays.map((d, i) => {
-    const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    return `<div class="cfh-wlabel">${i % 2 === 0 ? label : ''}</div>`;
-  }).join('');
-
-  const rowsHtml = rowsData.map((r) => {
-    const cellsHtml = r.cells.map((c) => {
-      const bg = cfhColorFor(c.ratio, c.rec);
-      const cls = bg ? '' : 'cfh-empty';
-      const style = bg ? `background:${bg};` : '';
-      let title;
-      if (c.rec == null) title = 'No risk data available for this week';
-      else if (c.rec <= 0 && c.actual <= 0) title = 'Hold week — no buy recommended';
-      else if (c.actual <= 0) title = `Missed — recommended $${c.rec.toFixed(0)}, bought $0`;
-      else title = `Bought $${c.actual.toFixed(0)} vs. recommended $${c.rec.toFixed(0)}`;
-      return `<div class="cfh-cell ${cls}" style="${style}" title="${title}"></div>`;
-    }).join('');
-    return `<div class="cfh-rlabel">${r.asset}</div>${cellsHtml}`;
-  }).join('');
-
-  panel.innerHTML = `
-    <div class="fp-label">Cash-flow discipline</div>
-    <div class="fp-sub" style="margin-bottom:2px;">Actual buys vs. risk-recommended size, last ${WEEKS_BACK} weeks</div>
-    <div class="cfh-grid">
-      <div></div>${weekLabelsHtml}
-      ${rowsHtml}
-    </div>
-    <div class="cfh-legend">
-      <span>Under target</span>
-      <span class="cfh-swatch" style="background:${CFH_RAMP[0]}"></span>
-      <span class="cfh-swatch" style="background:${CFH_RAMP[2]}"></span>
-      <span class="cfh-swatch" style="background:${CFH_RAMP[4]}"></span>
-      <span class="cfh-swatch" style="background:${CFH_RAMP[6]}"></span>
-      <span>At/over target</span>
-      <span class="cfh-swatch cfh-empty-swatch" style="margin-left:12px;"></span>
-      <span>Missed buy / hold week</span>
-    </div>`;
-}
-
 function openNextBuyModal() {
   const d = window.__nextBuyDetails;
   if (!d) return;
@@ -3544,6 +3454,12 @@ function openAssetModal(asset) {
 function openDebtModal() {
   const d = window.__debtDetails;
   if (!d) return;
+
+  if (d.postPayoff) {
+    openDebtModalPostPayoff(d);
+    return;
+  }
+
   const { pct, daysLeft, monthsLeft, monthsPaid, totalPaid, totalDebt, remaining } = d;
 
   // month-by-month payoff timeline, Jan 2026 → Dec 2026
@@ -3600,6 +3516,65 @@ function openDebtModal() {
           </tr>`).join('')}
         </tbody>
       </table></div>
+    </div>
+  `;
+
+  showModal();
+}
+
+function openDebtModalPostPayoff(d) {
+  const { activeGoal, ef, cf } = d;
+
+  const timeline = [];
+  for (let m = 0; m < 12; m++) {
+    const date = new Date(2026, m, 1);
+    const cumPaid = Math.min(m + 1, 12) * MONTHLY_DEBT;
+    timeline.push({ date, paid: cumPaid, remaining: (12 * MONTHLY_DEBT) - cumPaid });
+  }
+
+  const goalStatsHtml = activeGoal === 'ef' && ef ? `
+    <div class="modal-stats">
+      <div><span class="k">Redirect target</span><span class="v">Emergency Fund</span></div>
+      <div><span class="k">Current balance</span><span class="v">${fmtUSD(ef.total, 0)}</span></div>
+      <div><span class="k">Target</span><span class="v">${fmtUSD(ef.target, 0)}</span></div>
+      <div><span class="k">Remaining</span><span class="v">${fmtUSD(ef.remaining, 0)}</span></div>
+      <div><span class="k">Redirect rate</span><span class="v" style="color:var(--gain)">+${fmtUSD(MONTHLY_DEBT, 0)}/mo</span></div>
+      <div><span class="k">Next goal</span><span class="v">Coast FI, once full</span></div>
+    </div>` : cf ? `
+    <div class="modal-stats">
+      <div><span class="k">Redirect target</span><span class="v">Coast FI</span></div>
+      <div><span class="k">Current portfolio</span><span class="v">${fmtUSD(cf.pv, 0)}</span></div>
+      <div><span class="k">Target</span><span class="v">${fmtUSD(cf.fv, 0)}</span></div>
+      <div><span class="k">Redirect rate</span><span class="v" style="color:var(--gain)">+${fmtUSD(MONTHLY_DEBT, 0)}/mo</span></div>
+      <div><span class="k">Assumed return</span><span class="v">${(cf.r * 100).toFixed(0)}%/yr</span></div>
+    </div>` : '';
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-head">
+      <span class="modal-asset">Debt Freedom</span>
+      <span class="modal-mv" style="color:var(--gain)">Paid off</span>
+      <span class="modal-pl">Redirecting to ${activeGoal === 'ef' ? 'Emergency Fund' : 'Coast FI'}</span>
+    </div>
+
+    ${goalStatsHtml}
+
+    <div class="modal-section">
+      <h3>How the payoff went</h3>
+      <div class="payoff-strip">
+        ${timeline.map((t) => {
+          const label = t.date.toLocaleDateString(undefined, { month: 'short' });
+          return `<div class="ps-month done"><div class="ps-bar"></div><span class="ps-lbl">${label}</span></div>`;
+        }).join('')}
+      </div>
+      <div class="payoff-legend">
+        <span><i style="background:var(--gain)"></i>Paid (12)</span>
+      </div>
+    </div>
+
+    <div class="modal-empty">
+      $${MONTHLY_DEBT}/mo automatically routes to the Emergency Fund until it hits target, then to
+      Coast FI acceleration — no manual switching needed. This preview assumes the redirect stays
+      constant; it doesn't account for changes to your other contribution rates.
     </div>
   `;
 
@@ -3884,11 +3859,15 @@ function render(data) {
   const { savings, summary, trades, rules, chart, monthlyBalance } = data;
 
   // ---- debt countdown + milestones ----
-  renderDebtCountdown();
+  // Coast FI and Emergency Fund must render before the debt panel — once the
+  // car loan is paid off, the debt panel's post-payoff runway redirects that
+  // $300/mo into whichever of those two goals isn't funded yet, and reads
+  // their computed details (window.__coastFiDetails / __emergencyFundDetails).
   const monthlyDCA = summary.dcaPace ? summary.dcaPace.avgPerWeek * (52 / 12) : 0;
-  renderMilestones(savings.totalNetSavings, monthlyDCA);
   renderCoastFI(savings.totalNetSavings);
   renderEmergencyFund(savings.accounts);
+  renderDebtCountdown();
+  renderMilestones(savings.totalNetSavings, monthlyDCA);
   renderPortfolioPet();
 
   // ---- live risk scores ----
@@ -3899,7 +3878,6 @@ function render(data) {
   renderRiskPanel('xaut', riskRaw.xaut, holdingByAsset.XAUT || 0);
   renderGaugePanel('btc', riskRaw.btc);
   renderGaugePanel('xaut', riskRaw.xaut);
-  renderCashFlowHeatmap(trades, riskRaw);
 
   // ---- monthly balance trend ----
   renderMonthlyBalancePanel(monthlyBalance, savings.totalNetSavings);

@@ -244,8 +244,31 @@
   .alloc-donut-wrap{position:relative;width:100%;max-width:200px;margin:2px auto 14px;display:flex;align-items:center;justify-content:center;}
   .alloc-donut-wrap canvas{width:100%!important;height:auto!important;aspect-ratio:1/1;}
   .alloc-donut-center{position:absolute;text-align:center;pointer-events:none;}
-  .alloc-donut-center span{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);}
-  .alloc-donut-center strong{display:block;font-family:var(--mono);font-size:16px;font-weight:700;color:var(--ink);margin-top:2px;}
+  .alloc-donut-center .adc-label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);transition:color .15s ease;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .alloc-donut-center #adc-value{display:block;font-family:var(--mono);font-size:16px;font-weight:700;color:var(--ink);margin-top:2px;}
+  .alloc-donut-center .adc-sub{display:block;font-family:var(--mono);font-size:9px;color:var(--accent);margin-top:2px;}
+  .alloc-donut-item.is-hovered{background:var(--bg-panel);border-color:var(--accent);}
+  .adr-header{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin-bottom:10px;}
+  .adr-header-name{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--ink);}
+  .adr-header-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+  .adr-back{
+    font-family:var(--mono);font-size:10px;color:var(--ink-dim);
+    background:var(--bg-panel-2);border:1px solid var(--hair-bright);border-radius:6px;
+    padding:5px 9px;cursor:pointer;transition:color .15s ease,border-color .15s ease;white-space:nowrap;
+  }
+  .adr-back:hover{color:var(--ink);border-color:var(--accent);}
+  .adr-stats{display:flex;width:100%;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);padding:9px 0;margin-bottom:12px;}
+  .adr-stat{flex:1;text-align:center;}
+  .adr-stat:first-child{border-right:1px solid var(--hair);}
+  .adr-stat .k{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:3px;}
+  .adr-stat .v{display:block;font-family:var(--mono);font-size:14px;font-weight:700;color:var(--ink);}
+  .adr-sub{width:100%;text-align:left;padding:8px 0;border-bottom:1px solid var(--hair);}
+  .adr-sub:last-child{border-bottom:none;}
+  .adr-sub-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-family:var(--mono);font-size:11px;}
+  .adr-sub-name{color:var(--ink-dim);}
+  .adr-sub-meta{color:var(--ink-faint);font-size:10px;white-space:nowrap;}
+  .adr-sub-bar{height:4px;background:var(--bg-panel-2);border:1px solid var(--hair);margin-top:5px;overflow:hidden;}
+  .adr-sub-bar span{display:block;height:100%;background:var(--accent);}
   .alloc-donut-legend{list-style:none;margin:0;padding:0;width:100%;display:flex;flex-direction:column;gap:6px;}
   .alloc-donut-item{
     display:flex;justify-content:space-between;align-items:center;gap:8px;
@@ -1200,9 +1223,10 @@
               <h3>Allocation Breakdown</h3>
               <div class="alloc-donut-wrap">
                 <canvas id="alloc-donut-current"></canvas>
-                <div class="alloc-donut-center">
-                  <span>Total</span>
-                  <strong id="alloc-donut-total"></strong>
+                <div class="alloc-donut-center" id="alloc-donut-center">
+                  <span class="adc-label" id="adc-label">Total Allocation</span>
+                  <strong id="adc-value"></strong>
+                  <span class="adc-sub" id="adc-sub"></span>
                 </div>
               </div>
               <div class="alloc-donut-legend" id="alloc-donut-legend"></div>
@@ -4388,26 +4412,149 @@ function renderAllocationUI(savings, summary) {
   `).join('');
 
   // Interactive donut — same currentData/total as the "Current Allocation"
-  // treemap above, just rendered as a clickable Chart.js doughnut instead.
-  renderAllocDonut(currentData, total);
+  // treemap above, rendered as a clickable/hoverable Chart.js doughnut with
+  // a drill-down into each category's underlying holdings.
+  const donutSubcats = {
+    'Cash': (savings.accounts || [])
+      .filter((a) => (a.balanceUSD || 0) > 0)
+      .map((a) => ({ name: a.account, val: a.balanceUSD })),
+    'BTC': current['BTC'].val > 0 ? [{ name: 'BTC (OKX Spot)', val: current['BTC'].val }] : [],
+    'Gold': current['Gold'].val > 0 ? [{ name: 'XAUT (OKX Spot)', val: current['Gold'].val }] : [],
+    'Stablecoin': current['Stablecoin'].val > 0 ? [{ name: 'USDT (OKX Spot)', val: current['Stablecoin'].val }] : [],
+  };
+  renderAllocDonut(currentData, total, donutSubcats);
 }
 
+/* ---------- interactive allocation donut ---------- */
 let allocDonutChart = null;
-function renderAllocDonut(currentData, total) {
+let allocDonutData = [];
+let allocDonutTotal = 0;
+let allocDonutSubcats = {};
+let allocDonutSelected = null; // category name currently drilled into, or null
+
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+function allocDonutColors() {
+  return allocDonutData.map((d, i) => {
+    const base = assetColor(d.name, i, 'base');
+    if (!allocDonutSelected) return base;
+    return d.name === allocDonutSelected ? base : hexToRgba(base, 0.22);
+  });
+}
+
+function setDonutCenter(label, value, sub, color) {
+  document.getElementById('adc-label').textContent = label;
+  document.getElementById('adc-label').style.color = color;
+  document.getElementById('adc-value').textContent = value;
+  document.getElementById('adc-sub').textContent = sub;
+}
+
+function showDonutCenterIdle() {
+  setDonutCenter('Total Allocation', fmtUSD(allocDonutTotal), `${allocDonutData.length} Categories`, 'var(--ink-faint)');
+}
+
+function showDonutCenterFor(name) {
+  const i = allocDonutData.findIndex((d) => d.name === name);
+  if (i < 0) return showDonutCenterIdle();
+  const d = allocDonutData[i];
+  setDonutCenter(d.name, fmtUSD(d.val), `${d.pct.toFixed(0)}% of Portfolio`, assetColor(d.name, i, 'base'));
+}
+
+function selectDonutCategory(name) {
+  allocDonutSelected = name;
+  allocDonutChart.data.datasets[0].backgroundColor = allocDonutColors();
+  allocDonutChart.update();
+  showDonutCenterFor(name);
+  renderDonutPanel();
+}
+
+function clearDonutSelection() {
+  allocDonutSelected = null;
+  allocDonutChart.data.datasets[0].backgroundColor = allocDonutColors();
+  allocDonutChart.setActiveElements([]);
+  allocDonutChart.update();
+  showDonutCenterIdle();
+  renderDonutPanel();
+}
+
+function renderDonutPanel() {
+  const panel = document.getElementById('alloc-donut-legend');
+
+  if (!allocDonutSelected) {
+    panel.innerHTML = allocDonutData.map((d, i) => `
+      <div class="alloc-donut-item" style="border-left-color:${assetColor(d.name, i, 'base')}" data-idx="${i}">
+        <div class="adi-name">${d.name}</div>
+        <div class="adi-pct">${d.pct.toFixed(1)}%</div>
+        <div class="adi-val">${fmtUSD(d.val)}</div>
+      </div>
+    `).join('');
+    panel.querySelectorAll('.alloc-donut-item').forEach((item) => {
+      const idx = Number(item.dataset.idx);
+      const d = allocDonutData[idx];
+      item.addEventListener('mouseenter', () => {
+        item.classList.add('is-hovered');
+        allocDonutChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+        allocDonutChart.update();
+        showDonutCenterFor(d.name);
+      });
+      item.addEventListener('mouseleave', () => {
+        item.classList.remove('is-hovered');
+        allocDonutChart.setActiveElements([]);
+        allocDonutChart.update();
+        showDonutCenterIdle();
+      });
+      item.addEventListener('click', () => selectDonutCategory(d.name));
+    });
+    return;
+  }
+
+  const d = allocDonutData.find((x) => x.name === allocDonutSelected);
+  const i = allocDonutData.findIndex((x) => x.name === allocDonutSelected);
+  const color = assetColor(d.name, i, 'base');
+  const subs = (allocDonutSubcats[d.name] || []).map((s) => ({ ...s, pct: d.val ? (s.val / d.val) * 100 : 0 }));
+
+  panel.innerHTML = `
+    <div class="adr-header">
+      <div class="adr-header-name"><span class="adr-header-dot" style="background:${color}"></span>${d.name}</div>
+      <button class="adr-back" id="adr-back-btn">‹ Back to Overview</button>
+    </div>
+    <div class="adr-stats">
+      <div class="adr-stat"><span class="k">Target Value</span><span class="v">${fmtUSD(d.val)}</span></div>
+      <div class="adr-stat"><span class="k">Portfolio Share</span><span class="v">${d.pct.toFixed(1)}%</span></div>
+    </div>
+    ${subs.map((s) => `
+      <div class="adr-sub">
+        <div class="adr-sub-row">
+          <span class="adr-sub-name">${s.name}</span>
+          <span class="adr-sub-meta">${fmtUSD(s.val)} · ${s.pct.toFixed(1)}% of category</span>
+        </div>
+        <div class="adr-sub-bar"><span style="width:${Math.min(s.pct, 100).toFixed(1)}%;background:${color}"></span></div>
+      </div>
+    `).join('')}
+  `;
+  document.getElementById('adr-back-btn').addEventListener('click', clearDonutSelection);
+}
+
+function renderAllocDonut(currentData, total, subcats) {
   const canvas = document.getElementById('alloc-donut-current');
   if (!canvas || typeof Chart === 'undefined') return;
 
-  const data = currentData.filter((d) => (d.val || 0) > 0);
-  document.getElementById('alloc-donut-total').textContent = fmtUSD(total);
+  allocDonutData = currentData.filter((d) => (d.val || 0) > 0);
+  allocDonutTotal = total;
+  allocDonutSubcats = subcats || {};
+  allocDonutSelected = null;
 
   if (allocDonutChart) allocDonutChart.destroy();
   allocDonutChart = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: data.map((d) => d.name),
+      labels: allocDonutData.map((d) => d.name),
       datasets: [{
-        data: data.map((d) => d.val),
-        backgroundColor: data.map((d, i) => assetColor(d.name, i, 'base')),
+        data: allocDonutData.map((d) => d.val),
+        backgroundColor: allocDonutColors(),
         borderWidth: 0,
         hoverOffset: 10,
       }],
@@ -4416,6 +4563,14 @@ function renderAllocDonut(currentData, total) {
       responsive: true,
       maintainAspectRatio: false,
       cutout: '72%',
+      onHover: (evt, active) => {
+        if (allocDonutSelected) return; // center stays pinned to the drilled category
+        if (active.length) showDonutCenterFor(allocDonutData[active[0].index].name);
+        else showDonutCenterIdle();
+      },
+      onClick: (evt, active) => {
+        if (active.length) selectDonutCategory(allocDonutData[active[0].index].name);
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -4432,22 +4587,8 @@ function renderAllocDonut(currentData, total) {
     },
   });
 
-  const legend = document.getElementById('alloc-donut-legend');
-  legend.innerHTML = data.map((d, i) => `
-    <div class="alloc-donut-item" style="border-left-color:${assetColor(d.name, i, 'base')}" data-idx="${i}">
-      <div class="adi-name">${d.name}</div>
-      <div class="adi-pct">${d.pct.toFixed(1)}%</div>
-      <div class="adi-val">${fmtUSD(d.val)}</div>
-    </div>
-  `).join('');
-  legend.querySelectorAll('.alloc-donut-item').forEach((item) => {
-    item.addEventListener('click', () => {
-      const idx = Number(item.dataset.idx);
-      allocDonutChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
-      allocDonutChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
-      allocDonutChart.update();
-    });
-  });
+  showDonutCenterIdle();
+  renderDonutPanel();
 }
 
 async function loadAll() {

@@ -1232,6 +1232,18 @@
               </div>
               <div class="alloc-donut-legend" id="alloc-donut-legend"></div>
             </div>
+            <div class="alloc-card alloc-donut-card">
+              <h3>By Purpose Breakdown</h3>
+              <div class="alloc-donut-wrap">
+                <canvas id="alloc-donut-purpose"></canvas>
+                <div class="alloc-donut-center" id="alloc-donut-purpose-center">
+                  <span class="adc-label" id="adc-purpose-label">Total Allocation</span>
+                  <strong id="adc-purpose-value"></strong>
+                  <span class="adc-sub" id="adc-purpose-sub"></span>
+                </div>
+              </div>
+              <div class="alloc-donut-legend" id="alloc-donut-purpose-legend"></div>
+            </div>
           </div>
         </div>
         <div class="sell-summary-section">
@@ -4434,189 +4446,226 @@ function renderAllocationUI(savings, summary) {
     'Gold': current['Gold'].val > 0 ? [{ name: 'XAUT (OKX Spot)', val: current['Gold'].val }] : [],
     'Stablecoin': current['Stablecoin'].val > 0 ? [{ name: 'USDT (OKX Spot)', val: current['Stablecoin'].val }] : [],
   };
-  renderAllocDonut(currentData, total, donutSubcats);
+  allocDonutCurrent.render(currentData, total, donutSubcats);
+
+  // Interactive donut for the "By Purpose" breakdown — drills into the
+  // individual accounts (or holdings) behind each purpose bucket.
+  const findWhere = (re) => accts
+    .filter((a) => re.test(a.account || '') && (a.balanceUSD || 0) > 0)
+    .map((a) => ({ name: a.account, val: a.balanceUSD }));
+  const purposeSubcats = {
+    'Cash': findWhere(/^aba|^cash\b/i),
+    'Savings': findWhere(/j-?trust/i),
+    'Emergency Fund': findWhere(/maybank/i),
+    'Investment': [
+      current['BTC'].val > 0 ? { name: 'BTC (OKX Spot)', val: current['BTC'].val } : null,
+      current['Gold'].val > 0 ? { name: 'XAUT (OKX Spot)', val: current['Gold'].val } : null,
+      current['Stablecoin'].val > 0 ? { name: 'USDT (OKX Spot)', val: current['Stablecoin'].val } : null,
+    ].filter(Boolean),
+  };
+  allocDonutPurpose.render(purposeData, total, purposeSubcats);
 }
 
-/* ---------- interactive allocation donut ---------- */
-let allocDonutChart = null;
-let allocDonutData = [];
-let allocDonutTotal = 0;
-let allocDonutSubcats = {};
-let allocDonutSelected = null; // category name currently drilled into, or null
-
+/* ---------- interactive allocation donut (factory — supports multiple
+   independent instances on one page) ---------- */
 function hexToRgba(hex, alpha) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
-function allocDonutColors() {
-  return allocDonutData.map((d, i) => {
-    const base = assetColor(d.name, i, 'base');
-    if (!allocDonutSelected) return base;
-    return d.name === allocDonutSelected ? base : hexToRgba(base, 0.22);
-  });
-}
+function createAllocDonut(ids) {
+  const state = { chart: null, data: [], total: 0, subcats: {}, selected: null };
 
-function setDonutCenter(label, value, sub, color) {
-  document.getElementById('adc-label').textContent = label;
-  document.getElementById('adc-label').style.color = color;
-  document.getElementById('adc-value').textContent = value;
-  document.getElementById('adc-sub').textContent = sub;
-}
-
-function showDonutCenterIdle() {
-  setDonutCenter('Total Allocation', fmtUSD(allocDonutTotal), `${allocDonutData.length} Categories`, 'var(--ink-faint)');
-}
-
-function showDonutCenterFor(name) {
-  const i = allocDonutData.findIndex((d) => d.name === name);
-  if (i < 0) return showDonutCenterIdle();
-  const d = allocDonutData[i];
-  setDonutCenter(d.name, fmtUSD(d.val), `${d.pct.toFixed(0)}% of Portfolio`, assetColor(d.name, i, 'base'));
-}
-
-function selectDonutCategory(name) {
-  allocDonutSelected = name;
-  allocDonutChart.data.datasets[0].backgroundColor = allocDonutColors();
-  allocDonutChart.update();
-  showDonutCenterFor(name);
-  renderDonutPanel();
-}
-
-function clearDonutSelection() {
-  allocDonutSelected = null;
-  allocDonutChart.data.datasets[0].backgroundColor = allocDonutColors();
-  allocDonutChart.setActiveElements([]);
-  allocDonutChart.update();
-  showDonutCenterIdle();
-  renderDonutPanel();
-}
-
-function renderDonutPanel() {
-  const panel = document.getElementById('alloc-donut-legend');
-
-  if (!allocDonutSelected) {
-    panel.innerHTML = allocDonutData.map((d, i) => `
-      <div class="alloc-donut-item" style="border-left-color:${assetColor(d.name, i, 'base')}" data-idx="${i}">
-        <div class="adi-name">${d.name}</div>
-        <div class="adi-pct">${d.pct.toFixed(1)}%</div>
-        <div class="adi-val">${fmtUSD(d.val)}</div>
-      </div>
-    `).join('');
-    panel.querySelectorAll('.alloc-donut-item').forEach((item) => {
-      const idx = Number(item.dataset.idx);
-      const d = allocDonutData[idx];
-      item.addEventListener('mouseenter', () => {
-        item.classList.add('is-hovered');
-        allocDonutChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
-        allocDonutChart.update();
-        showDonutCenterFor(d.name);
-      });
-      item.addEventListener('mouseleave', () => {
-        item.classList.remove('is-hovered');
-        allocDonutChart.setActiveElements([]);
-        allocDonutChart.update();
-        showDonutCenterIdle();
-      });
-      item.addEventListener('click', () => selectDonutCategory(d.name));
+  function colors() {
+    return state.data.map((d, i) => {
+      const base = assetColor(d.name, i, 'base');
+      if (!state.selected) return base;
+      return d.name === state.selected ? base : hexToRgba(base, 0.22);
     });
-    return;
   }
 
-  const d = allocDonutData.find((x) => x.name === allocDonutSelected);
-  const i = allocDonutData.findIndex((x) => x.name === allocDonutSelected);
-  const color = assetColor(d.name, i, 'base');
-  const subs = (allocDonutSubcats[d.name] || []).map((s) => ({ ...s, pct: d.val ? (s.val / d.val) * 100 : 0 }));
+  function setCenter(label, value, sub, color) {
+    document.getElementById(ids.centerLabelId).textContent = label;
+    document.getElementById(ids.centerLabelId).style.color = color;
+    document.getElementById(ids.centerValueId).textContent = value;
+    document.getElementById(ids.centerSubId).textContent = sub;
+  }
 
-  panel.innerHTML = `
-    <div class="adr-header">
-      <div class="adr-header-name"><span class="adr-header-dot" style="background:${color}"></span>${d.name}</div>
-      <button class="adr-back" id="adr-back-btn">‹ Back to Overview</button>
-    </div>
-    <div class="adr-stats">
-      <div class="adr-stat"><span class="k">Target Value</span><span class="v">${fmtUSD(d.val)}</span></div>
-      <div class="adr-stat"><span class="k">Portfolio Share</span><span class="v">${d.pct.toFixed(1)}%</span></div>
-    </div>
-    ${subs.map((s) => `
-      <div class="adr-sub">
-        <div class="adr-sub-row">
-          <span class="adr-sub-name">${s.name}</span>
-          <span class="adr-sub-meta">${fmtUSD(s.val)} · ${s.pct.toFixed(1)}% of category</span>
+  function showCenterIdle() {
+    setCenter(ids.idleLabel || 'Total Allocation', fmtUSD(state.total), `${state.data.length} Categories`, 'var(--ink-faint)');
+  }
+
+  function showCenterFor(name) {
+    const i = state.data.findIndex((d) => d.name === name);
+    if (i < 0) return showCenterIdle();
+    const d = state.data[i];
+    setCenter(d.name, fmtUSD(d.val), `${d.pct.toFixed(0)}% of Portfolio`, assetColor(d.name, i, 'base'));
+  }
+
+  function selectCategory(name) {
+    state.selected = name;
+    state.chart.data.datasets[0].backgroundColor = colors();
+    state.chart.update();
+    showCenterFor(name);
+    renderPanel();
+  }
+
+  function clearSelection() {
+    state.selected = null;
+    state.chart.data.datasets[0].backgroundColor = colors();
+    state.chart.setActiveElements([]);
+    state.chart.update();
+    showCenterIdle();
+    renderPanel();
+  }
+
+  function renderPanel() {
+    const panel = document.getElementById(ids.legendId);
+
+    if (!state.selected) {
+      panel.innerHTML = state.data.map((d, i) => `
+        <div class="alloc-donut-item" style="border-left-color:${assetColor(d.name, i, 'base')}" data-idx="${i}">
+          <div class="adi-name">${d.name}</div>
+          <div class="adi-pct">${d.pct.toFixed(1)}%</div>
+          <div class="adi-val">${fmtUSD(d.val)}</div>
         </div>
-        <div class="adr-sub-bar"><span style="width:${Math.min(s.pct, 100).toFixed(1)}%;background:${color}"></span></div>
-      </div>
-    `).join('')}
-  `;
-  document.getElementById('adr-back-btn').addEventListener('click', clearDonutSelection);
-}
+      `).join('');
+      panel.querySelectorAll('.alloc-donut-item').forEach((item) => {
+        const idx = Number(item.dataset.idx);
+        const d = state.data[idx];
+        item.addEventListener('mouseenter', () => {
+          item.classList.add('is-hovered');
+          state.chart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+          state.chart.update();
+          showCenterFor(d.name);
+        });
+        item.addEventListener('mouseleave', () => {
+          item.classList.remove('is-hovered');
+          state.chart.setActiveElements([]);
+          state.chart.update();
+          showCenterIdle();
+        });
+        item.addEventListener('click', () => selectCategory(d.name));
+      });
+      return;
+    }
 
-function renderAllocDonut(currentData, total, subcats) {
-  const canvas = document.getElementById('alloc-donut-current');
-  if (!canvas || typeof Chart === 'undefined') return;
-  if (typeof ChartDataLabels !== 'undefined' && !Chart.registry.plugins.get('datalabels')) {
-    Chart.register(ChartDataLabels);
+    const d = state.data.find((x) => x.name === state.selected);
+    const i = state.data.findIndex((x) => x.name === state.selected);
+    const color = assetColor(d.name, i, 'base');
+    const subs = (state.subcats[d.name] || []).map((s) => ({ ...s, pct: d.val ? (s.val / d.val) * 100 : 0 }));
+
+    panel.innerHTML = `
+      <div class="adr-header">
+        <div class="adr-header-name"><span class="adr-header-dot" style="background:${color}"></span>${d.name}</div>
+        <button class="adr-back" id="${ids.backBtnId}">‹ Back to Overview</button>
+      </div>
+      <div class="adr-stats">
+        <div class="adr-stat"><span class="k">Target Value</span><span class="v">${fmtUSD(d.val)}</span></div>
+        <div class="adr-stat"><span class="k">Portfolio Share</span><span class="v">${d.pct.toFixed(1)}%</span></div>
+      </div>
+      ${subs.map((s) => `
+        <div class="adr-sub">
+          <div class="adr-sub-row">
+            <span class="adr-sub-name">${s.name}</span>
+            <span class="adr-sub-meta">${fmtUSD(s.val)} · ${s.pct.toFixed(1)}% of category</span>
+          </div>
+          <div class="adr-sub-bar"><span style="width:${Math.min(s.pct, 100).toFixed(1)}%;background:${color}"></span></div>
+        </div>
+      `).join('')}
+    `;
+    document.getElementById(ids.backBtnId).addEventListener('click', clearSelection);
   }
 
-  allocDonutData = currentData.filter((d) => (d.val || 0) > 0);
-  allocDonutTotal = total;
-  allocDonutSubcats = subcats || {};
-  allocDonutSelected = null;
+  function render(currentData, total, subcats) {
+    const canvas = document.getElementById(ids.canvasId);
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (typeof ChartDataLabels !== 'undefined' && !Chart.registry.plugins.get('datalabels')) {
+      Chart.register(ChartDataLabels);
+    }
 
-  if (allocDonutChart) allocDonutChart.destroy();
-  allocDonutChart = new Chart(canvas.getContext('2d'), {
-    type: 'doughnut',
-    data: {
-      labels: allocDonutData.map((d) => d.name),
-      datasets: [{
-        data: allocDonutData.map((d) => d.val),
-        backgroundColor: allocDonutColors(),
-        borderWidth: 0,
-        hoverOffset: 10,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '72%',
-      layout: { padding: 26 },
-      onHover: (evt, active) => {
-        if (allocDonutSelected) return; // center stays pinned to the drilled category
-        if (active.length) showDonutCenterFor(allocDonutData[active[0].index].name);
-        else showDonutCenterIdle();
-      },
-      onClick: (evt, active) => {
-        if (active.length) selectDonutCategory(allocDonutData[active[0].index].name);
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.label}: ${fmtUSD(ctx.parsed)}`,
-          },
-          padding: 10,
-          backgroundColor: 'rgba(10,11,20,0.92)',
-          titleFont: { size: 12 },
-          bodyFont: { size: 12 },
-        },
-        datalabels: {
-          color: (ctx) => {
-            const d = allocDonutData[ctx.dataIndex];
-            return (allocDonutSelected && d.name !== allocDonutSelected) ? 'transparent' : '#E7E9F5';
-          },
-          font: { family: 'IBM Plex Mono, monospace', size: 11, weight: '700' },
-          anchor: 'end',
-          align: 'end',
-          offset: 6,
-          formatter: (value, ctx) => `${Math.round(allocDonutData[ctx.dataIndex].pct)}%`,
-        },
-      },
-      animation: { animateScale: true, animateRotate: true },
-    },
-  });
+    state.data = currentData.filter((d) => (d.val || 0) > 0);
+    state.total = total;
+    state.subcats = subcats || {};
+    state.selected = null;
 
-  showDonutCenterIdle();
-  renderDonutPanel();
+    if (state.chart) state.chart.destroy();
+    state.chart = new Chart(canvas.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: state.data.map((d) => d.name),
+        datasets: [{
+          data: state.data.map((d) => d.val),
+          backgroundColor: colors(),
+          borderWidth: 0,
+          hoverOffset: 10,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        layout: { padding: 26 },
+        onHover: (evt, active) => {
+          if (state.selected) return; // center stays pinned to the drilled category
+          if (active.length) showCenterFor(state.data[active[0].index].name);
+          else showCenterIdle();
+        },
+        onClick: (evt, active) => {
+          if (active.length) selectCategory(state.data[active[0].index].name);
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.label}: ${fmtUSD(ctx.parsed)}`,
+            },
+            padding: 10,
+            backgroundColor: 'rgba(10,11,20,0.92)',
+            titleFont: { size: 12 },
+            bodyFont: { size: 12 },
+          },
+          datalabels: {
+            color: (ctx) => {
+              const d = state.data[ctx.dataIndex];
+              return (state.selected && d.name !== state.selected) ? 'transparent' : '#E7E9F5';
+            },
+            font: { family: 'IBM Plex Mono, monospace', size: 11, weight: '700' },
+            anchor: 'end',
+            align: 'end',
+            offset: 6,
+            formatter: (value, ctx) => `${Math.round(state.data[ctx.dataIndex].pct)}%`,
+          },
+        },
+        animation: { animateScale: true, animateRotate: true },
+      },
+    });
+
+    showCenterIdle();
+    renderPanel();
+  }
+
+  return { render };
 }
+
+const allocDonutCurrent = createAllocDonut({
+  canvasId: 'alloc-donut-current',
+  centerLabelId: 'adc-label',
+  centerValueId: 'adc-value',
+  centerSubId: 'adc-sub',
+  legendId: 'alloc-donut-legend',
+  backBtnId: 'adr-back-btn',
+});
+
+const allocDonutPurpose = createAllocDonut({
+  canvasId: 'alloc-donut-purpose',
+  centerLabelId: 'adc-purpose-label',
+  centerValueId: 'adc-purpose-value',
+  centerSubId: 'adc-purpose-sub',
+  legendId: 'alloc-donut-purpose-legend',
+  backBtnId: 'adr-purpose-back-btn',
+});
+
 
 async function loadAll() {
   document.getElementById('state-loading').classList.remove('hidden');

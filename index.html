@@ -1215,6 +1215,11 @@
               <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
               <ul class="alloc-list" id="alloc-list-current"></ul>
             </div>
+            <div class="alloc-card">
+              <h3>By Purpose</h3>
+              <svg class="alloc-treemap" id="alloc-treemap-purpose" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
+              <ul class="alloc-list" id="alloc-list-purpose"></ul>
+            </div>
             <div class="alloc-card alloc-donut-card">
               <h3>Allocation Breakdown</h3>
               <div class="alloc-donut-wrap">
@@ -4175,8 +4180,9 @@ const ASSET_COLOR_MAP = {
   'BTC': { base: '#F7931A', light: '#FFC168' },        // Bitcoin orange
   'Gold': { base: '#F0B93B', light: '#FFDE8A' },       // amber/gold
   'Stablecoin': { base: '#26A17B', light: '#6FE0BC' }, // Tether/USDT green
-  'Growth': { base: '#F7931A', light: '#FFC168' },     // same family as BTC/Gold
-  'Stable': { base: '#8B5CF6', light: '#B8A6FA' },     // same family as Cash/Stablecoin
+  'Savings': { base: '#22D3EE', light: '#7BE8FA' },    // cyan — dashboard accent2
+  'Emergency Fund': { base: '#F87171', light: '#FCA5A5' }, // soft red — safety net
+  'Investment': { base: '#F7931A', light: '#FFC168' }, // same family as BTC
 };
 const FALLBACK_PALETTE = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
 function assetColor(name, i, variant) {
@@ -4378,6 +4384,37 @@ function renderAllocationUI(savings, summary) {
   
   const currentList = document.getElementById('alloc-list-current');
   currentList.innerHTML = currentData.map((d, i) => `
+    <li class="alloc-item">
+      <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
+      <div class="alloc-item-name">${d.name}</div>
+      <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
+      <div class="alloc-item-val">${fmtUSD(d.val)}</div>
+    </li>
+  `).join('');
+
+  // By Purpose — regroups the same accounts/holdings by what they're *for*
+  // rather than what asset they are. Mapping (as specified by the user):
+  //   Cash            = ABA (USD+KHR) + physical Cash (KHR+USD)
+  //   Savings         = J-Trust (USD)
+  //   Emergency Fund  = MAYBANK (USD+KHR) — same accounts as the existing
+  //                     Emergency Fund panel, so the two stay consistent
+  //   Investment      = BTC + XAUT (Gold) + USDT (Stablecoin)
+  const accts = savings.accounts || [];
+  const sumWhere = (re) => accts
+    .filter((a) => re.test(a.account || ''))
+    .reduce((s, a) => s + (a.balanceUSD || 0), 0);
+
+  const purposeVals = {
+    'Cash': sumWhere(/^aba|^cash\b/i),
+    'Savings': sumWhere(/j-?trust/i),
+    'Emergency Fund': sumWhere(/maybank/i),
+    'Investment': current['BTC'].val + current['Gold'].val + current['Stablecoin'].val,
+  };
+  const purposeData = Object.entries(purposeVals).map(([name, val]) => ({ name, val, pct: (val / total) * 100 }));
+  drawTreemap(document.getElementById('alloc-treemap-purpose'), purposeData);
+
+  const purposeList = document.getElementById('alloc-list-purpose');
+  purposeList.innerHTML = purposeData.map((d, i) => `
     <li class="alloc-item">
       <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
       <div class="alloc-item-name">${d.name}</div>

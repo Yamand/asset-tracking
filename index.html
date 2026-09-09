@@ -297,11 +297,16 @@
     display:flex;
     align-items:center;
     gap:8px;
-    padding:7px 0;
+    padding:7px 4px;
+    margin:0 -4px;
     font-family:var(--mono);
     font-size:11.5px;
     border-bottom:1px solid var(--hair);
+    border-radius:5px;
+    cursor:pointer;
+    transition:background .15s ease;
   }
+  .alloc-item:hover{background:var(--bg-panel-2);}
   .alloc-item:last-child{border-bottom:none;}
   .alloc-dot{
     width:7px;height:7px;border-radius:50%;flex-shrink:0;
@@ -1232,7 +1237,7 @@
               </div>
               <div class="view-treemap">
                 <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
-                <ul class="alloc-list" id="alloc-list-current"></ul>
+                <div class="alloc-list" id="alloc-list-current"></div>
               </div>
               <div class="view-donut">
                 <div class="alloc-donut-wrap">
@@ -1256,7 +1261,7 @@
               </div>
               <div class="view-treemap">
                 <svg class="alloc-treemap" id="alloc-treemap-purpose" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
-                <ul class="alloc-list" id="alloc-list-purpose"></ul>
+                <div class="alloc-list" id="alloc-list-purpose"></div>
               </div>
               <div class="view-donut">
                 <div class="alloc-donut-wrap">
@@ -4303,12 +4308,13 @@ function squarify(items, x0, y0, w0, h0) {
   return results;
 }
 
-function drawTreemap(svgEl, data) {
+function drawTreemap(svgEl, data, opts) {
   // Each asset becomes a rectangular tile sized by its share of the total —
   // a glossy diagonal gradient fill (matches the rest of the dashboard's
   // "light catching glass" style), a thin gap between tiles, rounded
   // corners, and a name + percentage label that scales down (or drops off)
   // once a tile gets too small to hold it.
+  opts = opts || {};
   const W = 100, H = 62, pad = 0.9;
 
   const items = data
@@ -4326,13 +4332,18 @@ function drawTreemap(svgEl, data) {
 
   tiles.forEach((t) => {
     const i = indexOf[t.name];
-    const base = assetColor(t.name, i, 'base');
+    const baseColor = assetColor(t.name, i, 'base');
+    const dimmed = opts.selected && t.name !== opts.selected;
+    const fill = dimmed ? hexToRgba(baseColor, 0.22) : baseColor;
+    const labelColor = dimmed ? 'rgba(255,255,255,0.35)' : '#FFFFFF';
     const rx = t.x + pad, ry = t.y + pad;
     const rw = Math.max(t.w - pad * 2, 0.5);
     const rh = Math.max(t.h - pad * 2, 0.5);
     const cornerR = Math.min(2.2, rw / 2, rh / 2);
+    const strokeColor = (!dimmed && opts.selected === t.name) ? baseColor : 'rgba(10,11,20,0.55)';
+    const strokeWidth = (!dimmed && opts.selected === t.name) ? 1.1 : 0.6;
 
-    tileHtml += `<rect x="${rx.toFixed(2)}" y="${ry.toFixed(2)}" width="${rw.toFixed(2)}" height="${rh.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="${base}" stroke="rgba(10,11,20,0.55)" stroke-width="0.6" class="alloc-seg" data-tooltip="${t.name} — ${fmtUSD(t.val)} (${t.pct.toFixed(1)}%)"/>`;
+    tileHtml += `<rect x="${rx.toFixed(2)}" y="${ry.toFixed(2)}" width="${rw.toFixed(2)}" height="${rh.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="${fill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" class="alloc-seg" data-name="${t.name}" data-tooltip="${t.name} — ${fmtUSD(t.val)} (${t.pct.toFixed(1)}%)"/>`;
 
     const cx = rx + rw / 2, cy = ry + rh / 2;
     // Shrink the name's font until its estimated rendered width fits the
@@ -4348,15 +4359,20 @@ function drawTreemap(svgEl, data) {
     const canFitTwoLines = nameFits && rw >= 12 && rh >= 12;
     const canFitOneLine = rw >= 8 && rh >= 6.5;
     if (canFitTwoLines) {
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy - 3.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize.toFixed(1)}" font-weight="600" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${t.name}</text>`;
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy + 4.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy - 3.6).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${nameFontSize.toFixed(1)}" font-weight="600" fill="${labelColor}" font-family="IBM Plex Mono, monospace" style="pointer-events:none;text-transform:uppercase;">${t.name}</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${(cy + 4.4).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="700" fill="${labelColor}" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
     } else if (canFitOneLine) {
-      labelHtml += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="6.5" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
+      labelHtml += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="6.5" font-weight="700" fill="${labelColor}" font-family="IBM Plex Mono, monospace" style="pointer-events:none;">${Math.round(t.pct)}%</text>`;
     }
   });
 
   svgEl.innerHTML = `${tileHtml}${labelHtml}`;
   attachAllocTooltips(svgEl);
+  if (opts.onSelect) {
+    svgEl.querySelectorAll('.alloc-seg').forEach((seg) => {
+      seg.addEventListener('click', () => opts.onSelect(seg.dataset.name));
+    });
+  }
 }
 
 function getAllocTooltipEl() {
@@ -4396,6 +4412,95 @@ function attachAllocTooltips(svgEl) {
   });
 }
 
+/* ---------- click-to-drill-down treemap panel (factory — mirrors the
+   donut's drill-down, but renders tiles instead of arcs) ---------- */
+function createAllocTreemapPanel(ids) {
+  const state = { data: [], total: 0, subcats: {}, selected: null };
+
+  function selectCategory(name) {
+    state.selected = (state.selected === name) ? null : name;
+    draw();
+  }
+
+  function clearSelection() {
+    state.selected = null;
+    draw();
+  }
+
+  function draw() {
+    const svgEl = document.getElementById(ids.svgId);
+    drawTreemap(svgEl, state.data, { selected: state.selected, onSelect: selectCategory });
+    renderPanel();
+  }
+
+  function renderPanel() {
+    const panel = document.getElementById(ids.listId);
+
+    if (!state.selected) {
+      panel.innerHTML = state.data.map((d, i) => `
+        <div class="alloc-item" data-name="${d.name}">
+          <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
+          <div class="alloc-item-name">${d.name}</div>
+          <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
+          <div class="alloc-item-val">${fmtUSD(d.val)}</div>
+        </div>
+      `).join('');
+      panel.querySelectorAll('.alloc-item').forEach((item) => {
+        item.addEventListener('click', () => selectCategory(item.dataset.name));
+      });
+      return;
+    }
+
+    const d = state.data.find((x) => x.name === state.selected);
+    const i = state.data.findIndex((x) => x.name === state.selected);
+    const color = assetColor(d.name, i, 'base');
+    const subs = (state.subcats[d.name] || []).map((s) => ({ ...s, pct: d.val ? (s.val / d.val) * 100 : 0 }));
+
+    panel.innerHTML = `
+      <div class="adr-header">
+        <div class="adr-header-name"><span class="adr-header-dot" style="background:${color}"></span>${d.name}</div>
+        <button class="adr-back" id="${ids.backBtnId}">‹ Back to Overview</button>
+      </div>
+      <div class="adr-stats">
+        <div class="adr-stat"><span class="k">Target Value</span><span class="v">${fmtUSD(d.val)}</span></div>
+        <div class="adr-stat"><span class="k">Portfolio Share</span><span class="v">${d.pct.toFixed(1)}%</span></div>
+      </div>
+      ${subs.map((s) => `
+        <div class="adr-sub">
+          <div class="adr-sub-row">
+            <span class="adr-sub-name">${s.name}</span>
+            <span class="adr-sub-meta">${fmtUSD(s.val)} · ${s.pct.toFixed(1)}% of category</span>
+          </div>
+          <div class="adr-sub-bar"><span style="width:${Math.min(s.pct, 100).toFixed(1)}%;background:${color}"></span></div>
+        </div>
+      `).join('')}
+    `;
+    document.getElementById(ids.backBtnId).addEventListener('click', clearSelection);
+  }
+
+  function render(data, total, subcats) {
+    state.data = data.filter((d) => (d.val || 0) > 0);
+    state.total = total;
+    state.subcats = subcats || {};
+    state.selected = null;
+    draw();
+  }
+
+  return { render };
+}
+
+const allocTreemapCurrent = createAllocTreemapPanel({
+  svgId: 'alloc-treemap-current',
+  listId: 'alloc-list-current',
+  backBtnId: 'atr-back-btn-current',
+});
+
+const allocTreemapPurpose = createAllocTreemapPanel({
+  svgId: 'alloc-treemap-purpose',
+  listId: 'alloc-list-purpose',
+  backBtnId: 'atr-back-btn-purpose',
+});
+
 function renderAllocationUI(savings, summary) {
   const total = savings.totalNetSavings || 1;
   
@@ -4418,17 +4523,17 @@ function renderAllocationUI(savings, summary) {
   
   // Render current allocation
   const currentData = Object.entries(current).map(([name, data]) => ({ name, pct: data.pct, val: data.val }));
-  drawTreemap(document.getElementById('alloc-treemap-current'), currentData);
-  
-  const currentList = document.getElementById('alloc-list-current');
-  currentList.innerHTML = currentData.map((d, i) => `
-    <li class="alloc-item">
-      <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
-      <div class="alloc-item-name">${d.name}</div>
-      <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
-      <div class="alloc-item-val">${fmtUSD(d.val)}</div>
-    </li>
-  `).join('');
+
+  const donutSubcats = {
+    'Cash': (savings.accounts || [])
+      .filter((a) => (a.balanceUSD || 0) > 0)
+      .map((a) => ({ name: a.account, val: a.balanceUSD })),
+    'BTC': current['BTC'].val > 0 ? [{ name: 'BTC (OKX Spot)', val: current['BTC'].val }] : [],
+    'Gold': current['Gold'].val > 0 ? [{ name: 'XAUT (OKX Spot)', val: current['Gold'].val }] : [],
+    'Stablecoin': current['Stablecoin'].val > 0 ? [{ name: 'USDT (OKX Spot)', val: current['Stablecoin'].val }] : [],
+  };
+  allocTreemapCurrent.render(currentData, total, donutSubcats);
+  allocDonutCurrent.render(currentData, total, donutSubcats);
 
   // By Purpose — regroups the same accounts/holdings by what they're *for*
   // rather than what asset they are. Mapping (as specified by the user):
@@ -4441,6 +4546,9 @@ function renderAllocationUI(savings, summary) {
   const sumWhere = (re) => accts
     .filter((a) => re.test(a.account || ''))
     .reduce((s, a) => s + (a.balanceUSD || 0), 0);
+  const findWhere = (re) => accts
+    .filter((a) => re.test(a.account || '') && (a.balanceUSD || 0) > 0)
+    .map((a) => ({ name: a.account, val: a.balanceUSD }));
 
   const purposeVals = {
     'Cash': sumWhere(/^aba|^cash\b/i),
@@ -4449,36 +4557,7 @@ function renderAllocationUI(savings, summary) {
     'Investment': current['BTC'].val + current['Gold'].val + current['Stablecoin'].val,
   };
   const purposeData = Object.entries(purposeVals).map(([name, val]) => ({ name, val, pct: (val / total) * 100 }));
-  drawTreemap(document.getElementById('alloc-treemap-purpose'), purposeData);
 
-  const purposeList = document.getElementById('alloc-list-purpose');
-  purposeList.innerHTML = purposeData.map((d, i) => `
-    <li class="alloc-item">
-      <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
-      <div class="alloc-item-name">${d.name}</div>
-      <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
-      <div class="alloc-item-val">${fmtUSD(d.val)}</div>
-    </li>
-  `).join('');
-
-  // Interactive donut — same currentData/total as the "Current Allocation"
-  // treemap above, rendered as a clickable/hoverable Chart.js doughnut with
-  // a drill-down into each category's underlying holdings.
-  const donutSubcats = {
-    'Cash': (savings.accounts || [])
-      .filter((a) => (a.balanceUSD || 0) > 0)
-      .map((a) => ({ name: a.account, val: a.balanceUSD })),
-    'BTC': current['BTC'].val > 0 ? [{ name: 'BTC (OKX Spot)', val: current['BTC'].val }] : [],
-    'Gold': current['Gold'].val > 0 ? [{ name: 'XAUT (OKX Spot)', val: current['Gold'].val }] : [],
-    'Stablecoin': current['Stablecoin'].val > 0 ? [{ name: 'USDT (OKX Spot)', val: current['Stablecoin'].val }] : [],
-  };
-  allocDonutCurrent.render(currentData, total, donutSubcats);
-
-  // Interactive donut for the "By Purpose" breakdown — drills into the
-  // individual accounts (or holdings) behind each purpose bucket.
-  const findWhere = (re) => accts
-    .filter((a) => re.test(a.account || '') && (a.balanceUSD || 0) > 0)
-    .map((a) => ({ name: a.account, val: a.balanceUSD }));
   const purposeSubcats = {
     'Cash': findWhere(/^aba|^cash\b/i),
     'Savings': findWhere(/j-?trust/i),
@@ -4489,6 +4568,7 @@ function renderAllocationUI(savings, summary) {
       current['Stablecoin'].val > 0 ? { name: 'USDT (OKX Spot)', val: current['Stablecoin'].val } : null,
     ].filter(Boolean),
   };
+  allocTreemapPurpose.render(purposeData, total, purposeSubcats);
   allocDonutPurpose.render(purposeData, total, purposeSubcats);
 }
 

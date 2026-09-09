@@ -1000,6 +1000,7 @@
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 <body>
 <canvas id="bg-particles" aria-hidden="true"></canvas>
@@ -4541,6 +4542,9 @@ function renderDonutPanel() {
 function renderAllocDonut(currentData, total, subcats) {
   const canvas = document.getElementById('alloc-donut-current');
   if (!canvas || typeof Chart === 'undefined') return;
+  if (typeof ChartDataLabels !== 'undefined' && !Chart.registry.plugins.get('datalabels')) {
+    Chart.register(ChartDataLabels);
+  }
 
   allocDonutData = currentData.filter((d) => (d.val || 0) > 0);
   allocDonutTotal = total;
@@ -4563,6 +4567,7 @@ function renderAllocDonut(currentData, total, subcats) {
       responsive: true,
       maintainAspectRatio: false,
       cutout: '72%',
+      layout: { padding: 26 },
       onHover: (evt, active) => {
         if (allocDonutSelected) return; // center stays pinned to the drilled category
         if (active.length) showDonutCenterFor(allocDonutData[active[0].index].name);
@@ -4581,6 +4586,17 @@ function renderAllocDonut(currentData, total, subcats) {
           backgroundColor: 'rgba(10,11,20,0.92)',
           titleFont: { size: 12 },
           bodyFont: { size: 12 },
+        },
+        datalabels: {
+          color: (ctx) => {
+            const d = allocDonutData[ctx.dataIndex];
+            return (allocDonutSelected && d.name !== allocDonutSelected) ? 'transparent' : '#E7E9F5';
+          },
+          font: { family: 'IBM Plex Mono, monospace', size: 11, weight: '700' },
+          anchor: 'end',
+          align: 'end',
+          offset: 6,
+          formatter: (value, ctx) => `${Math.round(allocDonutData[ctx.dataIndex].pct)}%`,
         },
       },
       animation: { animateScale: true, animateRotate: true },

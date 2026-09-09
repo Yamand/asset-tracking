@@ -208,9 +208,22 @@
     letter-spacing:.1em;
     text-transform:uppercase;
     color:var(--accent);
-    margin:0 0 8px;
+    margin:0;
     font-weight:400;
   }
+  .alloc-card-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+  .view-toggle{display:flex;gap:4px;flex-shrink:0;}
+  .vt-btn{
+    font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--ink-faint);background:var(--bg-panel-2);border:1px solid var(--hair-bright);
+    border-radius:5px;padding:4px 8px;cursor:pointer;
+    transition:color .15s ease,border-color .15s ease,background .15s ease;
+  }
+  .vt-btn:hover{color:var(--ink);}
+  .vt-btn.active{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}
+  .view-treemap, .view-donut{width:100%;display:flex;flex-direction:column;align-items:center;}
+  .alloc-card[data-view="treemap"] .view-donut{display:none;}
+  .alloc-card[data-view="donut"] .view-treemap{display:none;}
   .alloc-treemap{width:100%;max-width:340px;height:auto;display:block;margin:2px auto 14px;overflow:visible;filter:drop-shadow(0 12px 28px rgba(0,0,0,0.45));}
   .alloc-seg{
     cursor:pointer;
@@ -240,7 +253,6 @@
     opacity:0;
     transition:opacity .12s ease;
   }
-  .alloc-donut-card{padding-bottom:12px;}
   .alloc-donut-wrap{position:relative;width:100%;max-width:200px;margin:2px auto 14px;display:flex;align-items:center;justify-content:center;}
   .alloc-donut-wrap canvas{width:100%!important;height:auto!important;aspect-ratio:1/1;}
   .alloc-donut-center{position:absolute;text-align:center;pointer-events:none;}
@@ -1210,39 +1222,53 @@
             <h2>Asset Allocation</h2>
           </div>
           <div class="alloc-grid">
-            <div class="alloc-card">
-              <h3>Current Allocation</h3>
-              <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
-              <ul class="alloc-list" id="alloc-list-current"></ul>
-            </div>
-            <div class="alloc-card">
-              <h3>By Purpose</h3>
-              <svg class="alloc-treemap" id="alloc-treemap-purpose" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
-              <ul class="alloc-list" id="alloc-list-purpose"></ul>
-            </div>
-            <div class="alloc-card alloc-donut-card">
-              <h3>Allocation Breakdown</h3>
-              <div class="alloc-donut-wrap">
-                <canvas id="alloc-donut-current"></canvas>
-                <div class="alloc-donut-center" id="alloc-donut-center">
-                  <span class="adc-label" id="adc-label">Total Allocation</span>
-                  <strong id="adc-value"></strong>
-                  <span class="adc-sub" id="adc-sub"></span>
+            <div class="alloc-card" data-view="treemap" id="alloc-card-current">
+              <div class="alloc-card-head">
+                <h3>Current Allocation</h3>
+                <div class="view-toggle">
+                  <button class="vt-btn active" data-view-btn="treemap">Treemap</button>
+                  <button class="vt-btn" data-view-btn="donut">Donut</button>
                 </div>
               </div>
-              <div class="alloc-donut-legend" id="alloc-donut-legend"></div>
+              <div class="view-treemap">
+                <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
+                <ul class="alloc-list" id="alloc-list-current"></ul>
+              </div>
+              <div class="view-donut">
+                <div class="alloc-donut-wrap">
+                  <canvas id="alloc-donut-current"></canvas>
+                  <div class="alloc-donut-center" id="alloc-donut-center">
+                    <span class="adc-label" id="adc-label">Total Allocation</span>
+                    <strong id="adc-value"></strong>
+                    <span class="adc-sub" id="adc-sub"></span>
+                  </div>
+                </div>
+                <div class="alloc-donut-legend" id="alloc-donut-legend"></div>
+              </div>
             </div>
-            <div class="alloc-card alloc-donut-card">
-              <h3>By Purpose Breakdown</h3>
-              <div class="alloc-donut-wrap">
-                <canvas id="alloc-donut-purpose"></canvas>
-                <div class="alloc-donut-center" id="alloc-donut-purpose-center">
-                  <span class="adc-label" id="adc-purpose-label">Total Allocation</span>
-                  <strong id="adc-purpose-value"></strong>
-                  <span class="adc-sub" id="adc-purpose-sub"></span>
+            <div class="alloc-card" data-view="treemap" id="alloc-card-purpose">
+              <div class="alloc-card-head">
+                <h3>By Purpose</h3>
+                <div class="view-toggle">
+                  <button class="vt-btn active" data-view-btn="treemap">Treemap</button>
+                  <button class="vt-btn" data-view-btn="donut">Donut</button>
                 </div>
               </div>
-              <div class="alloc-donut-legend" id="alloc-donut-purpose-legend"></div>
+              <div class="view-treemap">
+                <svg class="alloc-treemap" id="alloc-treemap-purpose" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
+                <ul class="alloc-list" id="alloc-list-purpose"></ul>
+              </div>
+              <div class="view-donut">
+                <div class="alloc-donut-wrap">
+                  <canvas id="alloc-donut-purpose"></canvas>
+                  <div class="alloc-donut-center" id="alloc-donut-purpose-center">
+                    <span class="adc-label" id="adc-purpose-label">Total Allocation</span>
+                    <strong id="adc-purpose-value"></strong>
+                    <span class="adc-sub" id="adc-purpose-sub"></span>
+                  </div>
+                </div>
+                <div class="alloc-donut-legend" id="alloc-donut-purpose-legend"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -4645,7 +4671,11 @@ function createAllocDonut(ids) {
     renderPanel();
   }
 
-  return { render };
+  function resize() {
+    if (state.chart) state.chart.resize();
+  }
+
+  return { render, resize };
 }
 
 const allocDonutCurrent = createAllocDonut({
@@ -4666,6 +4696,26 @@ const allocDonutPurpose = createAllocDonut({
   backBtnId: 'adr-purpose-back-btn',
 });
 
+// Treemap/Donut view toggle for each alloc-card. Both views are rendered
+// up front (see renderAllocationUI); the toggle just shows/hides via CSS,
+// except the donut's canvas needs an explicit resize() the first time it's
+// revealed, since Chart.js measured a 0-width container while hidden.
+[
+  { cardId: 'alloc-card-current', donut: () => allocDonutCurrent },
+  { cardId: 'alloc-card-purpose', donut: () => allocDonutPurpose },
+].forEach(({ cardId, donut }) => {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.querySelectorAll('.vt-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.viewBtn;
+      if (card.dataset.view === view) return;
+      card.dataset.view = view;
+      card.querySelectorAll('.vt-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      if (view === 'donut') donut().resize();
+    });
+  });
+});
 
 async function loadAll() {
   document.getElementById('state-loading').classList.remove('hidden');

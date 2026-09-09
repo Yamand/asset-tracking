@@ -1173,6 +1173,11 @@
               <svg class="alloc-treemap" id="alloc-treemap-current" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
               <ul class="alloc-list" id="alloc-list-current"></ul>
             </div>
+            <div class="alloc-card">
+              <h3>Growth vs Stable</h3>
+              <svg class="alloc-treemap" id="alloc-treemap-risk" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
+              <ul class="alloc-list" id="alloc-list-risk"></ul>
+            </div>
           </div>
         </div>
         <div class="sell-summary-section">
@@ -4121,6 +4126,8 @@ const ASSET_COLOR_MAP = {
   'BTC': { base: '#F7931A', light: '#FFC168' },        // Bitcoin orange
   'Gold': { base: '#F0B93B', light: '#FFDE8A' },       // amber/gold
   'Stablecoin': { base: '#26A17B', light: '#6FE0BC' }, // Tether/USDT green
+  'Growth': { base: '#F7931A', light: '#FFC168' },     // same family as BTC/Gold
+  'Stable': { base: '#8B5CF6', light: '#B8A6FA' },     // same family as Cash/Stablecoin
 };
 const FALLBACK_PALETTE = ['#8B5CF6', '#22D3EE', '#F5B700', '#34D399'];
 function assetColor(name, i, variant) {
@@ -4329,7 +4336,27 @@ function renderAllocationUI(savings, summary) {
       <div class="alloc-item-val">${fmtUSD(d.val)}</div>
     </li>
   `).join('');
-  
+
+  // Growth (BTC + Gold) vs Stable (Cash + Stablecoin) — same underlying
+  // per-asset values as above, just re-bucketed by risk profile instead of
+  // by asset identity.
+  const growthVal = current['BTC'].val + current['Gold'].val;
+  const stableVal = current['Cash'].val + current['Stablecoin'].val;
+  const riskData = [
+    { name: 'Growth', val: growthVal, pct: (growthVal / total) * 100 },
+    { name: 'Stable', val: stableVal, pct: (stableVal / total) * 100 },
+  ];
+  drawTreemap(document.getElementById('alloc-treemap-risk'), riskData);
+
+  const riskList = document.getElementById('alloc-list-risk');
+  riskList.innerHTML = riskData.map((d, i) => `
+    <li class="alloc-item">
+      <div class="alloc-dot" style="background:${assetColor(d.name, i, 'base')}"></div>
+      <div class="alloc-item-name">${d.name}</div>
+      <div class="alloc-item-pct">${d.pct.toFixed(1)}%</div>
+      <div class="alloc-item-val">${fmtUSD(d.val)}</div>
+    </li>
+  `).join('');
 }
 
 async function loadAll() {

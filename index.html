@@ -240,6 +240,23 @@
     opacity:0;
     transition:opacity .12s ease;
   }
+  .alloc-donut-card{padding-bottom:12px;}
+  .alloc-donut-wrap{position:relative;width:100%;max-width:200px;margin:2px auto 14px;display:flex;align-items:center;justify-content:center;}
+  .alloc-donut-wrap canvas{width:100%!important;height:auto!important;aspect-ratio:1/1;}
+  .alloc-donut-center{position:absolute;text-align:center;pointer-events:none;}
+  .alloc-donut-center span{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);}
+  .alloc-donut-center strong{display:block;font-family:var(--mono);font-size:16px;font-weight:700;color:var(--ink);margin-top:2px;}
+  .alloc-donut-legend{list-style:none;margin:0;padding:0;width:100%;display:flex;flex-direction:column;gap:6px;}
+  .alloc-donut-item{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:8px 10px;border:1px solid var(--hair);border-left:3px solid var(--hair-bright);
+    background:var(--bg-panel-2);border-radius:6px;cursor:pointer;
+    transition:transform .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .alloc-donut-item:hover{transform:translateX(3px);background:var(--bg-panel);}
+  .alloc-donut-item .adi-name{flex:1;min-width:0;text-align:left;font-family:var(--mono);font-size:11px;color:var(--ink-dim);}
+  .alloc-donut-item .adi-val{font-family:var(--mono);font-size:11px;color:var(--ink);text-align:right;}
+  .alloc-donut-item .adi-pct{font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-align:right;min-width:38px;}
   .alloc-list{list-style:none;margin:0;padding:0;width:100%;}
   .alloc-item{
     display:flex;
@@ -959,6 +976,7 @@
   @media (max-width:520px){.payoff-strip{grid-template-columns:repeat(6,1fr);row-gap:12px;}}
 
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <canvas id="bg-particles" aria-hidden="true"></canvas>
@@ -1177,6 +1195,17 @@
               <h3>Growth vs Stable</h3>
               <svg class="alloc-treemap" id="alloc-treemap-risk" viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet"></svg>
               <ul class="alloc-list" id="alloc-list-risk"></ul>
+            </div>
+            <div class="alloc-card alloc-donut-card">
+              <h3>Allocation Breakdown</h3>
+              <div class="alloc-donut-wrap">
+                <canvas id="alloc-donut-current"></canvas>
+                <div class="alloc-donut-center">
+                  <span>Total</span>
+                  <strong id="alloc-donut-total"></strong>
+                </div>
+              </div>
+              <div class="alloc-donut-legend" id="alloc-donut-legend"></div>
             </div>
           </div>
         </div>
@@ -4357,6 +4386,68 @@ function renderAllocationUI(savings, summary) {
       <div class="alloc-item-val">${fmtUSD(d.val)}</div>
     </li>
   `).join('');
+
+  // Interactive donut — same currentData/total as the "Current Allocation"
+  // treemap above, just rendered as a clickable Chart.js doughnut instead.
+  renderAllocDonut(currentData, total);
+}
+
+let allocDonutChart = null;
+function renderAllocDonut(currentData, total) {
+  const canvas = document.getElementById('alloc-donut-current');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const data = currentData.filter((d) => (d.val || 0) > 0);
+  document.getElementById('alloc-donut-total').textContent = fmtUSD(total);
+
+  if (allocDonutChart) allocDonutChart.destroy();
+  allocDonutChart = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: data.map((d) => d.name),
+      datasets: [{
+        data: data.map((d) => d.val),
+        backgroundColor: data.map((d, i) => assetColor(d.name, i, 'base')),
+        borderWidth: 0,
+        hoverOffset: 10,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '72%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${fmtUSD(ctx.parsed)}`,
+          },
+          padding: 10,
+          backgroundColor: 'rgba(10,11,20,0.92)',
+          titleFont: { size: 12 },
+          bodyFont: { size: 12 },
+        },
+      },
+      animation: { animateScale: true, animateRotate: true },
+    },
+  });
+
+  const legend = document.getElementById('alloc-donut-legend');
+  legend.innerHTML = data.map((d, i) => `
+    <div class="alloc-donut-item" style="border-left-color:${assetColor(d.name, i, 'base')}" data-idx="${i}">
+      <div class="adi-name">${d.name}</div>
+      <div class="adi-pct">${d.pct.toFixed(1)}%</div>
+      <div class="adi-val">${fmtUSD(d.val)}</div>
+    </div>
+  `).join('');
+  legend.querySelectorAll('.alloc-donut-item').forEach((item) => {
+    item.addEventListener('click', () => {
+      const idx = Number(item.dataset.idx);
+      allocDonutChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+      allocDonutChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+      allocDonutChart.update();
+    });
+  });
 }
 
 async function loadAll() {

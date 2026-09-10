@@ -398,7 +398,6 @@
     padding:14px 16px;
     position:relative;
   }
-  .card.ghost{opacity:.45;border-style:dashed;}
   .card.stable{
     cursor:default;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -4059,8 +4058,6 @@ function render(data) {
   }
 
   const cardsEl = document.getElementById('asset-cards');
-  const tradedAssets = summary.assets.map((a) => a.asset);
-  const ghostAssets = ['XSPY', 'XQQQ'].filter((sym) => !tradedAssets.includes(sym));
   window.__assetDetails = {};
   let cardsHtml = '';
   summary.assets.forEach((a) => {
@@ -4111,14 +4108,6 @@ function render(data) {
         <div class="mv">${fmtUSD(usdtValue)}</div>
       </div>`;
   }
-  ghostAssets.forEach((sym) => {
-    cardsHtml += `
-      <div class="card ghost">
-        <div class="asset-name">${sym}</div>
-        <div class="mv">—</div>
-        <div class="pl">No position yet</div>
-      </div>`;
-  });
   cardsEl.innerHTML = cardsHtml || '<div class="pl">No trades logged yet.</div>';
 
   renderNextBuyCard(lastBuyByAsset, daysSince, usdtValue, summary.total ? summary.total.marketValue : null);

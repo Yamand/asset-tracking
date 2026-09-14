@@ -1477,7 +1477,7 @@ const RISK_SOURCES = {
   btc:  { label: 'BTC',  url: 'https://raw.githubusercontent.com/Yamand/btc-risk-score/main/data/btc_risk_history.json',   pageUrl: 'https://yamand.github.io/btc-risk-score/' },
   xaut: { label: 'XAUT', url: 'https://raw.githubusercontent.com/Yamand/gold-risk-score/main/data/gold_risk_history.json', pageUrl: 'https://yamand.github.io/gold-risk-score/' },
 };
-const SELL_TIER_MIN_HOLDING = 500; // sell tiers only "armed" once holdings reach this, per DCA rules
+
 
 // Target allocation split used only for the Next Buy "over target" warning.
 // Edit these to match your actual target weights — defaults are a placeholder.
@@ -2791,8 +2791,7 @@ function renderRiskPanel(key, history, holdingUSD) {
 
   const latest = history[history.length - 1];
   const tierClass = riskTierClass(latest.tier);
-  const armed = tierClass === 'sell' && holdingUSD >= SELL_TIER_MIN_HOLDING;
-  const nearArmed = tierClass === 'sell' && holdingUSD < SELL_TIER_MIN_HOLDING;
+  const armed = tierClass === 'sell';
   const streak = computeTierStreak(history);
 
   window.__riskDetails = window.__riskDetails || {};
@@ -2824,8 +2823,8 @@ function renderRiskPanel(key, history, holdingUSD) {
     ${streakHtml}
     <div class="fp-components">${compRows}</div>
     ${tierClass === 'sell' ? `
-      <div class="fp-armed ${armed ? 'is-armed' : ''}">
-        Sell tier ${armed ? '<b>ARMED</b>' : `<b>not armed</b> — holding $${holdingUSD.toFixed(0)} of $${SELL_TIER_MIN_HOLDING} threshold`}
+      <div class="fp-armed is-armed">
+        Sell tier <b>ACTIVE</b>
       </div>` : ''}
     <div class="card-expand-hint">View details →</div>`;
 }
@@ -2845,9 +2844,9 @@ function nextDCADate() {
 }
 
 function nbAmountLabel(d) {
-  const { latest, tierClass, armed, holdingUSD } = d;
+  const { latest, tierClass } = d;
   if (tierClass === 'sell') {
-    return armed ? 'SELL — armed' : `SELL (not armed, $${holdingUSD.toFixed(0)}/$${SELL_TIER_MIN_HOLDING})`;
+    return 'SELL — armed';
   }
   return latest.size_usd > 0 ? `$${latest.size_usd}` : 'Hold — $0';
 }
@@ -3189,7 +3188,7 @@ function openRiskModal(key) {
   const d = window.__riskDetails && window.__riskDetails[key];
   if (!d) return;
   const src = RISK_SOURCES[key];
-  const { history, latest, tierClass, holdingUSD, armed, streak } = d;
+  const { history, latest, tierClass, holdingUSD, streak } = d;
 
   const compRowsHtml = Object.entries(latest.components || {}).map(([k, v]) => `
     <div><span class="k">${COMPONENT_LABELS[k] || k}</span><span class="v">${v.toFixed(3)}</span></div>`).join('');
@@ -3212,8 +3211,7 @@ function openRiskModal(key) {
       <div><span class="k">DCA action</span><span class="v">${latest.action}</span></div>
       <div><span class="k">This-week size</span><span class="v">${latest.size_usd > 0 ? '$' + latest.size_usd : '—'}</span></div>
       ${tierClass === 'sell' ? `
-      <div><span class="k">Current ${src.label} holding</span><span class="v">${fmtUSD(holdingUSD)}</span></div>
-      <div><span class="k">Sell tier status</span><span class="v" style="color:${armed ? 'var(--loss)' : 'var(--ink-dim)'}">${armed ? 'Armed' : `Not armed (need $${SELL_TIER_MIN_HOLDING})`}</span></div>` : ''}
+      <div><span class="k">Current ${src.label} holding</span><span class="v">${fmtUSD(holdingUSD)}</span></div>` : ''}
     </div>
 
     ${streak ? `
